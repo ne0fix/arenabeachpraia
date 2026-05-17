@@ -1,96 +1,86 @@
-import { MercadoPagoConfig, Order, Payment } from 'mercadopago'
+import { MercadoPagoConfig, Payment } from 'mercadopago'
 
 const client = new MercadoPagoConfig({
   accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || '',
-  options: { timeout: 5000 }
+  options: { timeout: 10000 }
 })
 
-const orderClient = new Order(client)
 const paymentClient = new Payment(client)
 
-export interface CreateOrderInput {
-  external_reference: string
-  total_amount: number
-  payer_email: string
-  payment_method_id: string
-  token?: string
-  installments?: number
+export interface CreatePixInput {
+  externalReference: string
+  amount: number
+  payerEmail: string
+}
+
+export interface CreateCardInput {
+  externalReference: string
+  amount: number
+  payerEmail: string
+  token: string
+  paymentMethodId: string
 }
 
 export class MercadoPagoService {
-  // Expor client para uso em outros lugares se necessário (ex: Webhook)
   public client = client
 
-  /**
-   * Cria uma Ordem de Pagamento (Checkout API Orders - v1/orders)
-   * Recomendado para fluxos mais modernos e flexíveis.
-   */
-  async createOrder(input: CreateOrderInput) {
+  async createPixPayment(input: CreatePixInput) {
     try {
-      const isTest = process.env.MERCADOPAGO_LIVE !== 'true'
-      const payerEmail = isTest ? 'test_user@testuser.com' : input.payer_email
-
-      const body = {
-        type: 'online',
-        processing_mode: 'automatic',
-        external_reference: input.external_reference,
-        total_amount: String(input.total_amount),
-        payer: {
-          email: payerEmail
+      const result = await paymentClient.create({
+        body: {
+          transaction_amount: input.amount,
+          payment_method_id: 'pix',
+          external_reference: input.externalReference,
+          payer: { email: input.payerEmail },
         },
-        transactions: {
-          payments: [
-            {
-              amount: String(input.total_amount),
-              payment_method: {
-                id: input.payment_method_id,
-                type: input.payment_method_id === 'pix' ? 'bank_transfer' : 'credit_card',
-                ...(input.payment_method_id !== 'pix' && {
-                  token: input.token,
-                  installments: input.installments || 1
-                })
-              }
-            }
-          ]
-        }
-      }
-
-      const result = await orderClient.create({
-        body: body as any,
-        requestOptions: { idempotencyKey: input.external_reference }
+        requestOptions: { idempotencyKey: input.externalReference },
       })
       return result
-    } catch (error) {
-      console.error('MercadoPago createOrder error:', error)
+    } catch (error: any) {
+      console.error('MercadoPago createPixPayment error:', JSON.stringify(error?.cause ?? error))
       throw error
     }
   }
 
-  /**
-   * Reembolsa uma ordem ou pagamento
-   */
-  async refundOrder(orderId: string, amount?: number) {
+  async createCardPayment(input: CreateCardInput) {
     try {
-      const result = await orderClient.refund({
-        id: orderId,
-        body: amount ? { amount: String(amount) } as any : undefined
+      const result = await paymentClient.create({
+        body: {
+          transaction_amount: input.amount,
+          payment_method_id: input.paymentMethodId,
+          token: input.token,
+          installments: 1,
+          external_reference: input.externalReference,
+          payer: { email: input.payerEmail },
+        },
+        requestOptions: { idempotencyKey: input.externalReference },
       })
       return result
-    } catch (error) {
-      console.error('MercadoPago refundOrder error:', error)
+    } catch (error: any) {
+      console.error('MercadoPago createCardPayment error:', JSON.stringify(error?.cause ?? error))
       throw error
     }
   }
 
-  /**
-   * Consulta uma ordem pelo ID
-   */
-  async getOrder(orderId: string) {
+  async getPayment(paymentId: string) {
     try {
-      const result = await orderClient.get({ id: orderId })
+      const result = await paymentClient.get({ id: paymentId })
       return result
-    } catch (error) {
-      console.error('MercadoPago getOrder error:', error)
+    } catch (error: any) {
+      console.error('MercadoPago getPayment error:', JSON.stringify(error?.cause ?? error))
+      throw error
+    }
+  }
+
+  async refundPayment(paymentId: number, amount?: number) {
+    try {
+      const result = await paymentClient.refunds.create({
+        id: paymentId,
+        ...(amount ? { body: { amount } } : {}),
+      })
+      return result
+    } catch (error: any) {
+      console.error('MercadoPago refundPayment error:', JSON.stringify(error?.cause ?? error))
       throw error
     }
   }

@@ -72,26 +72,31 @@ export class CreateBookingUseCase {
     let pixExpiration = null
 
     try {
-      const mpOrder = await mercadoPagoService.createOrder({
-        external_reference: booking.id,
-        total_amount: totalValue,
-        payer_email: input.userEmail,
-        payment_method_id: input.paymentMethod === 'PIX' ? 'pix' : (input.cardBrand ?? 'visa'),
-        token: input.paymentToken,
-      })
-
-      gatewayId = mpOrder.id ?? null
-      gatewayStatus = mpOrder.status ?? 'PENDING'
-
       if (input.paymentMethod === 'PIX') {
-        const paymentData = (mpOrder as any).transactions?.payments?.[0]
-        const paymentMethod = paymentData?.payment_method
-        pixQrCode = paymentMethod?.qr_code ?? null
-        pixQrCodeBase64 = paymentMethod?.qr_code_base64 ?? null
-        pixExpiration = paymentData?.date_of_expiration ? new Date(paymentData.date_of_expiration) : null
+        const mpPayment = await mercadoPagoService.createPixPayment({
+          externalReference: booking.id,
+          amount: totalValue,
+          payerEmail: input.userEmail,
+        })
+        gatewayId = mpPayment.id?.toString() ?? null
+        gatewayStatus = mpPayment.status ?? 'PENDING'
+        const txData = (mpPayment as any).point_of_interaction?.transaction_data
+        pixQrCode = txData?.qr_code ?? null
+        pixQrCodeBase64 = txData?.qr_code_base64 ?? null
+        pixExpiration = txData?.expiration_date ? new Date(txData.expiration_date) : null
+      } else {
+        const mpPayment = await mercadoPagoService.createCardPayment({
+          externalReference: booking.id,
+          amount: totalValue,
+          payerEmail: input.userEmail,
+          token: input.paymentToken ?? '',
+          paymentMethodId: input.cardBrand ?? 'visa',
+        })
+        gatewayId = mpPayment.id?.toString() ?? null
+        gatewayStatus = mpPayment.status ?? 'PENDING'
       }
     } catch (error) {
-      console.error('Failed to create MercadoPago order:', error)
+      console.error('Failed to create MercadoPago payment:', error)
       throw error
     }
 

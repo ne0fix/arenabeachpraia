@@ -36,9 +36,8 @@ export class RefundPaymentUseCase {
     let refundId = `REFUND-${Date.now()}`
     
     try {
-      // Integração real com MercadoPago Orders
-      const mpRefund = await mercadoPagoService.refundOrder(payment.gatewayId, refundAmount)
-      refundId = mpRefund.id?.toString() || refundId
+      const mpRefund = await mercadoPagoService.refundPayment(Number(payment.gatewayId), refundAmount)
+      refundId = (mpRefund as any).id?.toString() || refundId
     } catch (error) {
       console.error('MercadoPago Refund Error:', error)
       throw new PaymentError('REFUND_GATEWAY_ERROR')

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/infrastructure/database/prisma'
 import { mercadoPagoService } from '@/services/MercadoPagoService'
-import { Payment } from 'mercadopago'
 import crypto from 'crypto'
 
 export async function POST(req: Request) {
@@ -32,16 +31,11 @@ export async function POST(req: Request) {
       }
     }
 
-    if (type === 'payment' || type === 'order') {
+    if (type === 'payment') {
       if (!resourceId) return NextResponse.json({ ok: true })
 
       let mpData: any
-      if (type === 'payment') {
-        const paymentClient = new Payment(mercadoPagoService.client)
-        mpData = await paymentClient.get({ id: String(resourceId) })
-      } else {
-        mpData = await mercadoPagoService.getOrder(String(resourceId))
-      }
+      mpData = await mercadoPagoService.getPayment(String(resourceId))
 
       const externalReference = mpData.external_reference
       if (!externalReference) return NextResponse.json({ ok: true })
@@ -122,8 +116,7 @@ export async function POST(req: Request) {
         if (result.outcome === 'conflict') {
           console.log(`Webhook: conflito de horário — cancelando booking ${booking.id}, tentando estorno ${result.gatewayId}`)
           try {
-            const paymentClient = new Payment(mercadoPagoService.client)
-            await paymentClient.refunds.create({ id: Number(result.gatewayId) })
+            await mercadoPagoService.refundPayment(Number(result.gatewayId))
             await prisma.payment.update({
               where: { id: payment.id },
               data: {
