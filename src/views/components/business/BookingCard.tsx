@@ -12,6 +12,7 @@ import type { BookingWithDetails, BookingStatus } from '@/models/entities/Bookin
 interface BookingCardProps {
   booking: BookingWithDetails
   onCancel?: (id: string) => void
+  onClick?: () => void
 }
 
 const statusConfig: Record<BookingStatus, { icon: any; label: string; color: string; bg: string }> = {
@@ -22,13 +23,19 @@ const statusConfig: Record<BookingStatus, { icon: any; label: string; color: str
   COMPLETED: { icon: CheckCircle, label: 'Realizado', color: 'text-blue-700', bg: 'bg-blue-50' },
 }
 
-export function BookingCard({ booking, onCancel }: BookingCardProps) {
+export function BookingCard({ booking, onCancel, onClick }: BookingCardProps) {
   const status = statusConfig[booking.status]
   const StatusIcon = status.icon
   const bookingDate = new Date(booking.date)
 
   return (
-    <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 overflow-hidden sun-shadow flex h-[104px] md:h-28 transition-all hover:border-primary/20">
+    <div
+      onClick={onClick}
+      className={cn(
+        'bg-surface-container-lowest rounded-2xl border border-outline-variant/30 overflow-hidden sun-shadow flex h-[104px] md:h-28 transition-all hover:border-primary/20',
+        onClick && 'cursor-pointer active:scale-[0.99]'
+      )}
+    >
       <div className="relative w-24 h-full md:w-28 flex-shrink-0">
         {booking.court.imageUrl ? (
           <Image
@@ -85,7 +92,7 @@ export function BookingCard({ booking, onCancel }: BookingCardProps) {
             )}
             {['CONFIRMED', 'PENDING'].includes(booking.status) && onCancel && (
               <button
-                onClick={() => onCancel(booking.id)}
+                onClick={(e) => { e.stopPropagation(); onCancel(booking.id) }}
                 className="text-red-600 font-headline text-[10px] md:text-xs font-extrabold hover:text-red-700 transition-colors uppercase tracking-wider"
               >
                 Cancelar

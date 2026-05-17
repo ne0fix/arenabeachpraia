@@ -19,19 +19,24 @@ const colors = {
 
 export function StatsCard({ title, value, delta, deltaPositive, icon, color = 'primary' }: StatsCardProps) {
   return (
-    <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 p-6 sun-shadow">
-      <div className="flex items-start justify-between mb-4">
-        <div className={cn('p-3 rounded-xl', colors[color])}>{icon}</div>
+    <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 p-4 sun-shadow flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <div className={cn('p-2 rounded-xl', colors[color])}>{icon}</div>
         {delta && (
-          <span className={cn('font-headline text-xs font-bold', deltaPositive ? 'text-green-600' : 'text-red-600')}>
+          <span className={cn(
+            'font-headline text-[10px] font-bold px-2 py-0.5 rounded-full',
+            deltaPositive ? 'text-green-700 bg-green-100' : 'text-red-700 bg-red-100'
+          )}>
             {deltaPositive ? '↑' : '↓'} {delta}
           </span>
         )}
       </div>
-      <p className="font-headline text-[10px] text-on-surface-variant uppercase tracking-widest font-bold mb-1">
-        {title}
-      </p>
-      <p className="font-headline text-2xl text-on-surface font-black">{value}</p>
+      <div>
+        <p className="font-headline text-[9px] text-on-surface-variant uppercase tracking-widest font-bold mb-1">
+          {title}
+        </p>
+        <p className="font-headline text-xl text-on-surface font-black">{value}</p>
+      </div>
     </div>
   )
 }

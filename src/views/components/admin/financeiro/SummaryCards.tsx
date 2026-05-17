@@ -11,9 +11,9 @@ interface SummaryCardsProps {
 export function SummaryCards({ data, loading }: SummaryCardsProps) {
   if (loading || !data) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
         {[...Array(6)].map((_, i) => (
-          <div key={i} className="h-40 bg-surface-container-lowest rounded-2xl border border-outline-variant/30 animate-pulse" />
+          <div key={i} className="h-24 bg-surface-container-lowest rounded-2xl border border-outline-variant/30 animate-pulse" />
         ))}
       </div>
     );
@@ -28,7 +28,7 @@ export function SummaryCards({ data, loading }: SummaryCardsProps) {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
       <StatsCard
         title="Receita Bruta"
         value={formatCurrency(revenue.gross)}
