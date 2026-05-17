@@ -3,10 +3,12 @@
 import { Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle, Calendar, Clock, Share2, Home, XCircle, AlertTriangle, Loader2 } from 'lucide-react'
+import { CheckCircle, Calendar, Clock, Share2, Home, XCircle, AlertTriangle, Loader2, QrCode, Copy, Check } from 'lucide-react'
+import { useState } from 'react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { motion } from 'motion/react'
+import Image from 'next/image'
 import { Button } from '@/views/components/ui/Button'
 import type { BookingWithDetails } from '@/models/entities/Booking'
 
@@ -14,6 +16,13 @@ function SuccessContent() {
   const params = useSearchParams()
   const router = useRouter()
   const bookingId = params.get('bookingId')
+  const [copied, setCopied] = useState(false)
+
+  const copyPix = (code: string) => {
+    navigator.clipboard.writeText(code)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   const { data: booking, isLoading } = useQuery<BookingWithDetails>({
     queryKey: ['booking', bookingId],
@@ -82,26 +91,70 @@ function SuccessContent() {
 
   // ── Aguardando confirmação do pagamento (PIX) ─────────────────────────────
   if (booking.status === 'PENDING') {
-    return (
-      <main className="flex-1 w-full max-w-md mx-auto px-6 flex flex-col items-center justify-center pt-12 pb-24 md:py-12">
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="relative mb-8">
-          <div className="relative bg-surface-container-lowest sun-shadow w-24 h-24 rounded-full flex items-center justify-center border-4 border-surface-container">
-            <Loader2 className="w-12 h-12 text-primary animate-spin" />
-          </div>
-        </motion.div>
+    const pixQrCode = (booking as any).payment?.pixQrCode
+    const pixQrCodeBase64 = (booking as any).payment?.pixQrCodeBase64
 
-        <div className="text-center mb-6">
-          <h1 className="font-headline text-2xl text-primary font-bold mb-2">
-            Aguardando Pagamento
-          </h1>
-          <p className="text-on-surface-variant text-sm leading-relaxed max-w-[280px] mx-auto">
-            Confirme o pagamento via PIX. Esta tela atualiza automaticamente.
-          </p>
+    return (
+      <main className="flex-1 w-full max-w-md mx-auto px-4 pt-8 pb-24 md:py-8 space-y-4">
+        {/* Status */}
+        <div className="flex flex-col items-center gap-3 mb-2">
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          </div>
+          <div className="text-center">
+            <h1 className="font-headline text-xl text-primary font-bold">Aguardando Pagamento PIX</h1>
+            <p className="font-headline text-xs text-on-surface-variant mt-1">
+              Esta tela atualiza automaticamente após o pagamento
+            </p>
+          </div>
         </div>
 
+        {/* QR Code */}
+        {(pixQrCode || pixQrCodeBase64) && (
+          <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 overflow-hidden">
+            <div className="bg-gradient-to-r from-green-600 to-emerald-500 px-4 py-3 flex items-center gap-2">
+              <QrCode className="w-4 h-4 text-white" />
+              <span className="font-headline text-white font-bold text-sm">Escaneie o QR Code</span>
+            </div>
+            <div className="p-4 flex flex-col items-center gap-3">
+              {pixQrCodeBase64 && (
+                <div className="bg-white p-3 rounded-xl shadow border border-outline-variant/10">
+                  <Image
+                    src={`data:image/png;base64,${pixQrCodeBase64}`}
+                    alt="QR Code Pix"
+                    width={200}
+                    height={200}
+                    priority
+                  />
+                </div>
+              )}
+              {pixQrCode && (
+                <>
+                  <div className="w-full bg-surface-container rounded-lg px-3 py-2 border border-outline-variant/20">
+                    <code className="font-headline text-[11px] text-on-surface-variant break-all line-clamp-2">{pixQrCode}</code>
+                  </div>
+                  <button
+                    onClick={() => copyPix(pixQrCode)}
+                    className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-headline text-sm font-bold transition-all ${
+                      copied ? 'bg-green-500 text-white' : 'bg-primary text-white hover:bg-primary/90'
+                    }`}
+                  >
+                    {copied ? <><Check className="w-4 h-4" /> Copiado!</> : <><Copy className="w-4 h-4" /> Copiar código PIX</>}
+                  </button>
+                </>
+              )}
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                <span className="font-headline text-[11px] text-on-surface-variant">Válido por 30 minutos</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Resumo da reserva */}
         {booking.court && (
-          <div className="w-full bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/30 mb-6 space-y-2">
-            <p className="font-headline text-xs font-bold text-on-surface-variant uppercase tracking-widest">Resumo</p>
+          <div className="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/30 space-y-2">
+            <p className="font-headline text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Reserva</p>
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-primary" />
               <span className="font-headline text-sm font-bold">{booking.court.name}</span>

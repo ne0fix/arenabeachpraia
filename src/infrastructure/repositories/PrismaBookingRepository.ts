@@ -36,6 +36,8 @@ const withDetails = {
       paidAt: true,
       refundedAt: true,
       refundAmount: true,
+      pixQrCode: true,
+      pixQrCodeBase64: true,
     },
   },
 }

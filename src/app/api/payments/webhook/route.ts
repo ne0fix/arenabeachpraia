@@ -8,57 +8,92 @@ export async function POST(req: Request) {
     const signature = req.headers.get('x-signature')
     const requestId = req.headers.get('x-request-id')
     const bodyText = await req.text()
-    const body = JSON.parse(bodyText)
 
-    const { type, data } = body
+    let body: any
+    try {
+      body = JSON.parse(bodyText)
+    } catch {
+      console.error('Webhook: body inválido:', bodyText.slice(0, 200))
+      return NextResponse.json({ ok: true })
+    }
+
+    const { type, data, topic } = body
     const resourceId = data?.id
 
+    console.log('Webhook recebido:', { type, topic, resourceId, body: JSON.stringify(body).slice(0, 300) })
+
     if (resourceId === '123456' || resourceId === 123456) {
-      console.log('MercadoPago Webhook: Simulação detectada (ID 123456)')
-      return NextResponse.json({ ok: true, message: 'Simulação recebida com sucesso' })
+      console.log('Webhook: Simulação detectada (ID 123456)')
+      return NextResponse.json({ ok: true })
     }
 
     if (process.env.MERCADOPAGO_WEBHOOK_SECRET && signature) {
-      const [tsPart, v1Part] = signature.split(',')
-      const ts = tsPart.split('=')[1]
-      const v1 = v1Part.split('=')[1]
-      const manifest = `id:${resourceId};request-id:${requestId};ts:${ts};`
-      const hmac = crypto.createHmac('sha256', process.env.MERCADOPAGO_WEBHOOK_SECRET)
-      hmac.update(manifest)
-      const digest = hmac.digest('hex')
-      if (digest !== v1) {
-        console.error('MercadoPago Webhook: Assinatura Inválida')
+      try {
+        const [tsPart, v1Part] = signature.split(',')
+        const ts = tsPart?.split('=')[1]
+        const v1 = v1Part?.split('=')[1]
+        if (ts && v1) {
+          const manifest = `id:${resourceId};request-id:${requestId};ts:${ts};`
+          const hmac = crypto.createHmac('sha256', process.env.MERCADOPAGO_WEBHOOK_SECRET)
+          hmac.update(manifest)
+          const digest = hmac.digest('hex')
+          if (digest !== v1) {
+            console.warn('Webhook: assinatura inválida (continuando mesmo assim)')
+          }
+        }
+      } catch (sigErr) {
+        console.warn('Webhook: erro ao validar assinatura:', sigErr)
       }
     }
 
-    if (type === 'payment') {
-      if (!resourceId) return NextResponse.json({ ok: true })
+    // Suporte a type="payment" (novo formato) e topic="payment" (IPN legado)
+    const isPaymentEvent = type === 'payment' || topic === 'payment'
 
+    if (isPaymentEvent) {
+      if (!resourceId) {
+        console.warn('Webhook: resourceId ausente')
+        return NextResponse.json({ ok: true })
+      }
+
+      console.log('Webhook: buscando pagamento MP id=', resourceId)
       let mpData: any
-      mpData = await mercadoPagoService.getPayment(String(resourceId))
+      try {
+        mpData = await mercadoPagoService.getPayment(String(resourceId))
+      } catch (err: any) {
+        console.error('Webhook: erro ao buscar pagamento MP:', err?.message ?? err)
+        return NextResponse.json({ ok: true })
+      }
 
       const externalReference = mpData.external_reference
-      if (!externalReference) return NextResponse.json({ ok: true })
+      const mpStatus = mpData.status
+      console.log('Webhook: MP status=', mpStatus, 'external_reference=', externalReference)
+
+      if (!externalReference) {
+        console.warn('Webhook: external_reference ausente no pagamento MP', resourceId)
+        return NextResponse.json({ ok: true })
+      }
 
       const payment = await prisma.payment.findFirst({
         where: { bookingId: externalReference },
         include: { booking: true },
       })
-      if (!payment || !payment.booking) return NextResponse.json({ ok: true })
 
-      // Evita reprocessar pagamentos já finalizados
-      if (['APPROVED', 'REFUNDED', 'CANCELLED'].includes(payment.status)) {
+      if (!payment || !payment.booking) {
+        console.warn('Webhook: payment não encontrado para bookingId=', externalReference)
         return NextResponse.json({ ok: true })
       }
 
-      const mpStatus = mpData.status
+      console.log('Webhook: payment DB id=', payment.id, 'status=', payment.status)
+
+      if (['APPROVED', 'REFUNDED', 'CANCELLED'].includes(payment.status)) {
+        console.log('Webhook: pagamento já finalizado, ignorando')
+        return NextResponse.json({ ok: true })
+      }
 
       if (['approved', 'processed', 'accredited'].includes(mpStatus)) {
         const booking = payment.booking
 
-        // ── Transação atômica para evitar dupla reserva ──────────────────────
         const result = await prisma.$transaction(async (tx) => {
-          // Verifica se já existe outro booking CONFIRMED para o mesmo slot
           const conflict = await tx.booking.findFirst({
             where: {
               id: { not: booking.id },
@@ -74,36 +109,20 @@ export async function POST(req: Request) {
           })
 
           if (conflict) {
-            // Este booking perde a corrida — cancela
             await tx.booking.update({
               where: { id: booking.id },
-              data: {
-                status: 'CANCELLED',
-                cancelReason: 'SLOT_CONFLICT',
-                cancelledAt: new Date(),
-                cancelledBy: 'system',
-              },
+              data: { status: 'CANCELLED', cancelReason: 'SLOT_CONFLICT', cancelledAt: new Date(), cancelledBy: 'system' },
             })
             await tx.payment.update({
               where: { id: payment.id },
-              data: {
-                status: 'CANCELLED',
-                gatewayStatus: mpStatus,
-                gatewayId: String(resourceId),
-              },
+              data: { status: 'CANCELLED', gatewayStatus: mpStatus, gatewayId: String(resourceId) },
             })
             return { outcome: 'conflict' as const, gatewayId: String(resourceId) }
           }
 
-          // Sem conflito — confirma
           await tx.payment.update({
             where: { id: payment.id },
-            data: {
-              status: 'APPROVED',
-              paidAt: new Date(),
-              gatewayStatus: mpStatus,
-              gatewayId: String(resourceId),
-            },
+            data: { status: 'APPROVED', paidAt: new Date(), gatewayStatus: mpStatus, gatewayId: String(resourceId) },
           })
           await tx.booking.update({
             where: { id: booking.id },
@@ -112,42 +131,38 @@ export async function POST(req: Request) {
           return { outcome: 'confirmed' as const }
         })
 
-        // ── Estorno automático para o perdedor ───────────────────────────────
+        console.log('Webhook: resultado=', result.outcome, 'bookingId=', booking.id)
+
         if (result.outcome === 'conflict') {
-          console.log(`Webhook: conflito de horário — cancelando booking ${booking.id}, tentando estorno ${result.gatewayId}`)
           try {
             await mercadoPagoService.refundPayment(Number(result.gatewayId))
             await prisma.payment.update({
               where: { id: payment.id },
-              data: {
-                status: 'REFUNDED',
-                refundedAt: new Date(),
-                refundReason: 'Horário já reservado por outro cliente',
-                refundAmount: payment.amount,
-              },
+              data: { status: 'REFUNDED', refundedAt: new Date(), refundReason: 'Horário já reservado por outro cliente', refundAmount: payment.amount },
             })
-            console.log(`Webhook: estorno realizado para booking ${booking.id}`)
+            console.log('Webhook: estorno realizado para booking', booking.id)
           } catch (refundErr) {
-            console.error(`Webhook: falha no estorno automático para booking ${booking.id}:`, refundErr)
-            // Mantém como CANCELLED para o admin estornar manualmente
+            console.error('Webhook: falha no estorno automático:', refundErr)
           }
         }
 
       } else if (['rejected', 'cancelled', 'expired'].includes(mpStatus)) {
-        const newStatus = mpStatus === 'rejected' ? 'REJECTED'
-          : mpStatus === 'expired' ? 'EXPIRED'
-          : 'CANCELLED'
-
+        const newStatus = mpStatus === 'rejected' ? 'REJECTED' : mpStatus === 'expired' ? 'EXPIRED' : 'CANCELLED'
         await prisma.payment.update({
           where: { id: payment.id },
           data: { status: newStatus as any, gatewayStatus: mpStatus },
         })
+        console.log('Webhook: pagamento', mpStatus, '→ status DB:', newStatus)
+      } else {
+        console.log('Webhook: status MP ignorado:', mpStatus)
       }
+    } else {
+      console.log('Webhook: tipo não tratado:', type ?? topic)
     }
 
     return NextResponse.json({ ok: true })
-  } catch (error) {
-    console.error('Webhook error:', error)
+  } catch (error: any) {
+    console.error('Webhook erro geral:', error?.message ?? error)
     return NextResponse.json({ ok: true })
   }
 }

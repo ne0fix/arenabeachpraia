@@ -47,6 +47,11 @@ export function usePaymentViewModel() {
       if (method === 'PIX' && data.pixQrCode) {
         setPixQrCode(data.pixQrCode)
         setPixQrCodeBase64(data.pixQrCodeBase64 || null)
+        // Redireciona para booking-success que faz polling automático.
+        // Pequeno delay para o QR aparecer brevemente antes de redirecionar.
+        setTimeout(() => {
+          router.push(`/booking-success?bookingId=${data.booking.id}`)
+        }, 1500)
       } else {
         router.push(`/booking-success?bookingId=${data.booking.id}`)
       }

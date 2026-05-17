@@ -26,18 +26,24 @@ export class MercadoPagoService {
 
   async createPixPayment(input: CreatePixInput) {
     try {
+      const notificationUrl = process.env.NEXTAUTH_URL
+        ? `${process.env.NEXTAUTH_URL}/api/payments/webhook`
+        : undefined
+
       const result = await paymentClient.create({
         body: {
           transaction_amount: input.amount,
           payment_method_id: 'pix',
           external_reference: input.externalReference,
           payer: { email: input.payerEmail },
-        },
+          ...(notificationUrl ? { notification_url: notificationUrl } : {}),
+        } as any,
         requestOptions: { idempotencyKey: input.externalReference },
       })
+      console.log('MP PIX created:', { id: result.id, status: result.status, external_reference: result.external_reference })
       return result
     } catch (error: any) {
-      console.error('MercadoPago createPixPayment error:', JSON.stringify(error?.cause ?? error))
+      console.error('MercadoPago createPixPayment error:', JSON.stringify(error?.cause ?? error?.message ?? error))
       throw error
     }
   }
