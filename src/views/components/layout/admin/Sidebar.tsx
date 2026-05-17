@@ -11,6 +11,7 @@ import {
   CreditCard,
   BarChart3,
   Settings,
+  Clock,
   LogOut,
   X,
 } from 'lucide-react'
@@ -25,6 +26,7 @@ const nav = [
   { icon: Users, label: 'Clientes', path: ROUTES.ADMIN.CLIENTS },
   { icon: CreditCard, label: 'Financeiro', path: ROUTES.ADMIN.PAYMENTS },
   { icon: BarChart3, label: 'Relatórios', path: ROUTES.ADMIN.REPORTS },
+  { icon: Clock, label: 'Horários', path: ROUTES.ADMIN.HORARIOS },
   { icon: Settings, label: 'Configurações', path: ROUTES.ADMIN.SETTINGS },
 ]
 

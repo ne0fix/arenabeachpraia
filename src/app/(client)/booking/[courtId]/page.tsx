@@ -113,26 +113,46 @@ export default function BookingPage({ params }: BookingPageProps) {
           <h3 className="font-headline text-base md:text-lg text-primary mb-4 md:mb-6 font-bold">Horários Disponíveis</h3>
           {vm.loadingSlots ? (
             <Loader size="sm" />
+          ) : !vm.availability?.slots.length ? (
+            <p className="font-headline text-sm text-on-surface-variant text-center py-8">
+              Nenhum horário disponível para esta data.
+            </p>
           ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 md:gap-3">
-              {vm.availability?.slots.map((slot) => {
-                const isSelected = vm.selectedSlot === slot.time
-                return (
-                  <button
-                    key={slot.time}
-                    disabled={!slot.available}
-                    onClick={() => vm.handleSlotSelect(slot.time)}
-                    className={cn(
-                      'py-2.5 md:py-3 px-1 rounded-xl border font-headline text-xs md:text-sm font-bold transition-all',
-                      !slot.available && 'bg-surface-container-low text-outline/40 border-outline-variant/10 cursor-not-allowed',
-                      slot.available && !isSelected && 'bg-surface-container text-on-surface border-outline-variant/30 hover:bg-secondary-container',
-                      isSelected && 'bg-primary text-white border-primary shadow-lg scale-105'
-                    )}
-                  >
-                    {slot.time}
-                  </button>
-                )
-              })}
+            <div className="space-y-5">
+              {vm.slotGroups.map((group) => (
+                <div key={group.label}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className={cn('w-2 h-2 rounded-full', group.color)} />
+                    <span className="font-headline text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">
+                      {group.label}
+                    </span>
+                    <div className="flex-1 h-px bg-outline-variant/20" />
+                    <span className="font-headline text-[9px] text-on-surface-variant">
+                      {group.slots.filter((s) => s.available).length} disponíveis
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 md:gap-3">
+                    {group.slots.map((slot) => {
+                      const isSelected = vm.selectedSlot === slot.time
+                      return (
+                        <button
+                          key={slot.time}
+                          disabled={!slot.available}
+                          onClick={() => vm.handleSlotSelect(slot.time)}
+                          className={cn(
+                            'py-2.5 md:py-3 px-1 rounded-xl border font-headline text-xs md:text-sm font-bold transition-all',
+                            !slot.available && 'bg-surface-container-low text-outline/40 border-outline-variant/10 cursor-not-allowed',
+                            slot.available && !isSelected && 'bg-surface-container text-on-surface border-outline-variant/30 hover:bg-secondary-container',
+                            isSelected && 'bg-primary text-white border-primary shadow-lg scale-105'
+                          )}
+                        >
+                          {slot.time}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </section>

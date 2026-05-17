@@ -15,7 +15,12 @@ export async function PUT(
   const { id } = await params
   const body = await request.json()
 
-  const allowed = ['name', 'description', 'pricePerHour', 'images', 'imageUrl', 'isActive', 'amenities', 'location', 'maxPlayers', 'openTime', 'closeTime']
+  const allowed = [
+    'name', 'description', 'pricePerHour', 'images', 'imageUrl', 'isActive',
+    'amenities', 'location', 'maxPlayers', 'openTime', 'closeTime', 'slotDuration',
+    'morningOpen', 'morningClose', 'morningEnabled',
+    'afternoonOpen', 'afternoonClose', 'afternoonEnabled',
+  ]
   const data: Record<string, unknown> = {}
   for (const key of allowed) {
     if (key in body) data[key] = body[key]

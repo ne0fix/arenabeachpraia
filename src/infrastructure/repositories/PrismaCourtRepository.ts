@@ -11,12 +11,15 @@ function toEntity(c: any): Court {
 }
 
 export class PrismaCourtRepository implements ICourtRepository {
-  async findAll(filters?: { isActive?: boolean; type?: string }): Promise<Court[]> {
+  async findAll(filters?: { isActive?: boolean | null; type?: string }): Promise<Court[]> {
+    const where: Record<string, unknown> = {}
+    // null = sem filtro (todas); undefined = apenas ativas (default)
+    if (filters?.isActive === null) { /* sem filtro */ }
+    else where.isActive = filters?.isActive ?? true
+    if (filters?.type) where.type = filters.type
+
     const courts = await prisma.court.findMany({
-      where: {
-        isActive: filters?.isActive ?? true,
-        type: filters?.type as any,
-      },
+      where,
       orderBy: [{ type: 'asc' }, { name: 'asc' }],
     })
     return courts.map(toEntity)
@@ -38,7 +41,7 @@ export class PrismaCourtRepository implements ICourtRepository {
         where: {
           courtId,
           date: dateObj,
-          status: { in: ['PENDING', 'CONFIRMED'] },
+          status: 'CONFIRMED',
         },
         select: { startTime: true, endTime: true },
       }),
@@ -52,21 +55,32 @@ export class PrismaCourtRepository implements ICourtRepository {
     }
 
     const slots: TimeSlot[] = []
-    const startBase = parse(court.openTime, 'HH:mm', new Date())
-    const endBase = parse(court.closeTime, 'HH:mm', new Date())
-    let current = startBase
 
-    while (current < endBase) {
-      const time = format(current, 'HH:mm')
-      const slotEnd = addMinutes(current, court.slotDuration)
-      const slotEndStr = format(slotEnd, 'HH:mm')
+    const generatePeriodSlots = (periodOpen: string, periodClose: string) => {
+      const start = parse(periodOpen, 'HH:mm', new Date())
+      const end = parse(periodClose, 'HH:mm', new Date())
+      let current = start
+      while (current < end) {
+        const time = format(current, 'HH:mm')
+        const slotEnd = addMinutes(current, court.slotDuration)
+        const isBooked = bookings.some(
+          (b) => b.startTime === time || (b.startTime < time && b.endTime > time)
+        )
+        slots.push({ time, available: !isBooked })
+        current = slotEnd
+      }
+    }
 
-      const isBooked = bookings.some(
-        (b) => b.startTime === time || (b.startTime < time && b.endTime > time)
-      )
+    if (court.morningEnabled) {
+      generatePeriodSlots(court.morningOpen, court.morningClose)
+    }
+    if (court.afternoonEnabled) {
+      generatePeriodSlots(court.afternoonOpen, court.afternoonClose)
+    }
 
-      slots.push({ time, available: !isBooked })
-      current = slotEnd
+    // fallback para quadras sem campos de período (dados legados)
+    if (!court.morningEnabled && !court.afternoonEnabled) {
+      generatePeriodSlots(court.openTime, court.closeTime)
     }
 
     return { date, slots }

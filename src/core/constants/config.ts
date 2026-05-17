@@ -22,5 +22,6 @@ export const ROUTES = {
     PAYMENTS: '/admin/financeiro',
     REPORTS: '/admin/reports',
     SETTINGS: '/admin/settings',
+    HORARIOS: '/admin/horarios',
   },
 } as const

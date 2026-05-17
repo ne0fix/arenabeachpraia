@@ -76,11 +76,13 @@ export class PrismaBookingRepository implements IBookingRepository {
   }
 
   async checkAvailability(courtId: string, date: string, startTime: string, endTime: string): Promise<boolean> {
+    // Apenas bookings CONFIRMED bloqueiam o slot. PENDING não reserva — o webhook
+    // decide quem ganha quando dois pagamentos chegam ao mesmo tempo.
     const conflict = await prisma.booking.findFirst({
       where: {
         courtId,
         date: new Date(date + 'T00:00:00'),
-        status: { in: ['PENDING', 'CONFIRMED'] },
+        status: 'CONFIRMED',
         OR: [
           { startTime: { gte: startTime, lt: endTime } },
           { endTime: { gt: startTime, lte: endTime } },

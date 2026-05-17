@@ -15,6 +15,12 @@ export interface Court {
   openTime: string
   closeTime: string
   slotDuration: number
+  morningOpen: string
+  morningClose: string
+  morningEnabled: boolean
+  afternoonOpen: string
+  afternoonClose: string
+  afternoonEnabled: boolean
   createdAt: Date
   updatedAt: Date
 }
