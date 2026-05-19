@@ -3,7 +3,7 @@ import type { IBookingRepository } from '@/repositories/IBookingRepository'
 import type { Payment } from '@/models/entities/Payment'
 import { PaymentError } from '@/core/errors/AppError'
 import { prisma } from '@/infrastructure/database/prisma'
-import { mercadoPagoService } from '@/services/MercadoPagoService'
+import { MercadoPagoService } from '@/services/MercadoPagoService'
 
 export interface RefundPaymentInput {
   bookingId: string
@@ -36,11 +36,12 @@ export class RefundPaymentUseCase {
     let refundId = `REFUND-${Date.now()}`
     
     try {
-      const mpRefund = await mercadoPagoService.refundPayment(Number(payment.gatewayId), refundAmount)
+      const mpRefund = await (await MercadoPagoService.create()).refundPayment(Number(payment.gatewayId), refundAmount)
       refundId = (mpRefund as any).id?.toString() || refundId
-    } catch (error) {
-      console.error('MercadoPago Refund Error:', error)
-      throw new PaymentError('REFUND_GATEWAY_ERROR')
+    } catch (error: any) {
+      const detail = error?.cause?.message ?? error?.message ?? 'Erro desconhecido'
+      console.error('MercadoPago Refund Error:', JSON.stringify(error?.cause ?? error))
+      throw new PaymentError('REFUND_GATEWAY_ERROR', `Erro MercadoPago: ${detail}`)
     }
 
     const updatedPayment = await this.paymentRepo.update(payment.id, {
@@ -52,11 +53,12 @@ export class RefundPaymentUseCase {
       refundReason: input.reason,
     })
 
+    // Após estorno: volta a PENDING para liberar o horário (CONFIRMED bloqueia; PENDING não bloqueia)
     await this.bookingRepo.update(input.bookingId, {
-      status: 'CANCELLED',
-      cancelledAt: new Date(),
-      cancelReason: input.reason,
-      cancelledBy: input.refundedBy,
+      status: 'PENDING',
+      cancelledAt: null,
+      cancelReason: null,
+      cancelledBy: null,
     })
 
     await prisma.auditLog.create({

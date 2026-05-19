@@ -7,6 +7,7 @@ export interface PublicSiteSettings {
   msgContact: string
   msgExclusive: string
   msgSupport: string
+  mpPublicKey: string
 }
 
 const DEFAULTS: PublicSiteSettings = {
@@ -14,6 +15,7 @@ const DEFAULTS: PublicSiteSettings = {
   msgContact:   'Olá! Gostaria de mais informações sobre a Arena Beach Serra.',
   msgExclusive: 'Olá! Tenho interesse em agendar o espaço exclusivo "{nome}". Poderia me passar mais informações?',
   msgSupport:   'Olá! Preciso de suporte com meu agendamento.',
+  mpPublicKey:  '',
 }
 
 const SiteSettingsContext = createContext<PublicSiteSettings>(DEFAULTS)

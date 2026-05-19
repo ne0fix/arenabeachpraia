@@ -12,6 +12,7 @@ export async function GET() {
       msgContact:     data.msgContact,
       msgExclusive:   data.msgExclusive,
       msgSupport:     data.msgSupport,
+      mpPublicKey:    'mpPublicKey' in data ? (data as any).mpPublicKey : (process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY ?? ''),
     },
     { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' } }
   )

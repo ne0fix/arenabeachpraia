@@ -1,16 +1,18 @@
-import { MercadoPagoConfig, Payment } from 'mercadopago'
+import { MercadoPagoConfig, Payment, PaymentRefund } from 'mercadopago'
+import { prisma } from '@/infrastructure/database/prisma'
 
-const client = new MercadoPagoConfig({
-  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN || '',
-  options: { timeout: 10000 }
-})
-
-const paymentClient = new Payment(client)
+export interface PaymentDescription {
+  courtName: string
+  date: string
+  startTime: string
+  endTime: string
+}
 
 export interface CreatePixInput {
   externalReference: string
   amount: number
   payerEmail: string
+  description: PaymentDescription
 }
 
 export interface CreateCardInput {
@@ -19,10 +21,31 @@ export interface CreateCardInput {
   payerEmail: string
   token: string
   paymentMethodId: string
+  description: PaymentDescription
 }
 
 export class MercadoPagoService {
-  public client = client
+  public client: MercadoPagoConfig
+  private paymentClient: Payment
+  private refundClient: PaymentRefund
+
+  constructor(accessToken: string) {
+    this.client = new MercadoPagoConfig({ accessToken, options: { timeout: 10000 } })
+    this.paymentClient = new Payment(this.client)
+    this.refundClient = new PaymentRefund(this.client)
+  }
+
+  static async create(): Promise<MercadoPagoService> {
+    const s = await prisma.siteSettings.findUnique({ where: { id: 'singleton' } }).catch(() => null)
+    const token = (s?.mpAccessToken && s.mpAccessToken.trim())
+      ? s.mpAccessToken.trim()
+      : (process.env.MERCADOPAGO_ACCESS_TOKEN ?? '')
+    return new MercadoPagoService(token)
+  }
+
+  private buildDescription(d: PaymentDescription): string {
+    return `${d.courtName} | ${d.date} | ${d.startTime}–${d.endTime}`
+  }
 
   async createPixPayment(input: CreatePixInput) {
     try {
@@ -30,17 +53,26 @@ export class MercadoPagoService {
         ? `${process.env.NEXTAUTH_URL}/api/payments/webhook`
         : undefined
 
-      const result = await paymentClient.create({
+      const description = this.buildDescription(input.description)
+      const result = await this.paymentClient.create({
         body: {
           transaction_amount: input.amount,
           payment_method_id: 'pix',
+          description,
           external_reference: input.externalReference,
           payer: { email: input.payerEmail },
+          metadata: {
+            court_name: input.description.courtName,
+            date: input.description.date,
+            start_time: input.description.startTime,
+            end_time: input.description.endTime,
+            booking_id: input.externalReference,
+          },
           ...(notificationUrl ? { notification_url: notificationUrl } : {}),
         } as any,
         requestOptions: { idempotencyKey: input.externalReference },
       })
-      console.log('MP PIX created:', { id: result.id, status: result.status, external_reference: result.external_reference })
+      console.log('MP PIX created:', { id: result.id, status: result.status })
       return result
     } catch (error: any) {
       console.error('MercadoPago createPixPayment error:', JSON.stringify(error?.cause ?? error?.message ?? error))
@@ -50,17 +82,28 @@ export class MercadoPagoService {
 
   async createCardPayment(input: CreateCardInput) {
     try {
-      const result = await paymentClient.create({
+      const description = this.buildDescription(input.description)
+      const result = await this.paymentClient.create({
         body: {
           transaction_amount: input.amount,
           payment_method_id: input.paymentMethodId,
           token: input.token,
           installments: 1,
+          description,
+          statement_descriptor: 'ARENA BEACH SERRA',
           external_reference: input.externalReference,
           payer: { email: input.payerEmail },
+          metadata: {
+            court_name: input.description.courtName,
+            date: input.description.date,
+            start_time: input.description.startTime,
+            end_time: input.description.endTime,
+            booking_id: input.externalReference,
+          },
         },
         requestOptions: { idempotencyKey: input.externalReference },
       })
+      console.log('MP Card created:', { id: result.id, status: result.status })
       return result
     } catch (error: any) {
       console.error('MercadoPago createCardPayment error:', JSON.stringify(error?.cause ?? error))
@@ -70,8 +113,7 @@ export class MercadoPagoService {
 
   async getPayment(paymentId: string) {
     try {
-      const result = await paymentClient.get({ id: paymentId })
-      return result
+      return await this.paymentClient.get({ id: paymentId })
     } catch (error: any) {
       console.error('MercadoPago getPayment error:', JSON.stringify(error?.cause ?? error))
       throw error
@@ -80,10 +122,11 @@ export class MercadoPagoService {
 
   async refundPayment(paymentId: number, amount?: number) {
     try {
-      const result = await paymentClient.refunds.create({
-        id: paymentId,
+      const result = await this.refundClient.create({
+        payment_id: paymentId,
         ...(amount ? { body: { amount } } : {}),
       })
+      console.log('MP Refund created:', { paymentId, refundId: (result as any).id })
       return result
     } catch (error: any) {
       console.error('MercadoPago refundPayment error:', JSON.stringify(error?.cause ?? error))
@@ -92,4 +135,5 @@ export class MercadoPagoService {
   }
 }
 
-export const mercadoPagoService = new MercadoPagoService()
+// Mantido para compatibilidade com código legado — prefira MercadoPagoService.create()
+export const mercadoPagoService = new MercadoPagoService(process.env.MERCADOPAGO_ACCESS_TOKEN ?? '')

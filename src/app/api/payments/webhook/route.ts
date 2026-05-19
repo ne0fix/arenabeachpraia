@@ -1,13 +1,18 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/infrastructure/database/prisma'
-import { mercadoPagoService } from '@/services/MercadoPagoService'
+import { MercadoPagoService } from '@/services/MercadoPagoService'
 import crypto from 'crypto'
 
 export async function POST(req: Request) {
   try {
+    const mp = await MercadoPagoService.create()
     const signature = req.headers.get('x-signature')
     const requestId = req.headers.get('x-request-id')
     const bodyText = await req.text()
+    const dbSettings = await prisma.siteSettings.findUnique({ where: { id: 'singleton' } }).catch(() => null)
+    const webhookSecret = (dbSettings?.mpWebhookSecret && dbSettings.mpWebhookSecret.trim())
+      ? dbSettings.mpWebhookSecret.trim()
+      : (process.env.MERCADOPAGO_WEBHOOK_SECRET ?? '')
 
     let body: any
     try {
@@ -27,14 +32,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true })
     }
 
-    if (process.env.MERCADOPAGO_WEBHOOK_SECRET && signature) {
+    if (webhookSecret && signature) {
       try {
         const [tsPart, v1Part] = signature.split(',')
         const ts = tsPart?.split('=')[1]
         const v1 = v1Part?.split('=')[1]
         if (ts && v1) {
           const manifest = `id:${resourceId};request-id:${requestId};ts:${ts};`
-          const hmac = crypto.createHmac('sha256', process.env.MERCADOPAGO_WEBHOOK_SECRET)
+          const hmac = crypto.createHmac('sha256', webhookSecret)
           hmac.update(manifest)
           const digest = hmac.digest('hex')
           if (digest !== v1) {
@@ -58,7 +63,7 @@ export async function POST(req: Request) {
       console.log('Webhook: buscando pagamento MP id=', resourceId)
       let mpData: any
       try {
-        mpData = await mercadoPagoService.getPayment(String(resourceId))
+        mpData = await mp.getPayment(String(resourceId))
       } catch (err: any) {
         console.error('Webhook: erro ao buscar pagamento MP:', err?.message ?? err)
         return NextResponse.json({ ok: true })
@@ -135,7 +140,7 @@ export async function POST(req: Request) {
 
         if (result.outcome === 'conflict') {
           try {
-            await mercadoPagoService.refundPayment(Number(result.gatewayId))
+            await mp.refundPayment(Number(result.gatewayId))
             await prisma.payment.update({
               where: { id: payment.id },
               data: { status: 'REFUNDED', refundedAt: new Date(), refundReason: 'Horário já reservado por outro cliente', refundAmount: payment.amount },

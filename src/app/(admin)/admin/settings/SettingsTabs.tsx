@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { LayoutGrid, Phone } from 'lucide-react'
+import { LayoutGrid, Phone, CreditCard } from 'lucide-react'
 import { CourtSettingsClient } from './CourtSettingsClient'
 import { ContactSettingsClient } from './ContactSettingsClient'
+import { PaymentSettingsClient } from './PaymentSettingsClient'
 import type { Court } from '@/models/entities/Court'
 
 interface ContactSettings {
@@ -24,7 +25,7 @@ interface Props {
   contactSettings: ContactSettings | null
 }
 
-type Tab = 'courts' | 'contact'
+type Tab = 'courts' | 'contact' | 'payment'
 
 export function SettingsTabs({ initialCourts, contactSettings }: Props) {
   const [tab, setTab] = useState<Tab>('courts')
@@ -39,7 +40,7 @@ export function SettingsTabs({ initialCourts, contactSettings }: Props) {
       </div>
 
       {/* Segmented tabs */}
-      <div className="flex gap-1.5 p-1 bg-surface-container rounded-xl w-full max-w-xs">
+      <div className="flex gap-1.5 p-1 bg-surface-container rounded-xl w-full max-w-sm">
         <button
           type="button"
           onClick={() => setTab('courts')}
@@ -64,10 +65,23 @@ export function SettingsTabs({ initialCourts, contactSettings }: Props) {
           <Phone className="w-3.5 h-3.5" />
           Contato
         </button>
+        <button
+          type="button"
+          onClick={() => setTab('payment')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg font-headline text-[10px] font-bold uppercase tracking-wider transition-all ${
+            tab === 'payment'
+              ? 'bg-surface-container-lowest text-primary shadow-sm'
+              : 'text-on-surface-variant hover:text-on-surface'
+          }`}
+        >
+          <CreditCard className="w-3.5 h-3.5" />
+          Pagamento
+        </button>
       </div>
 
       {tab === 'courts' && <CourtSettingsClient initialCourts={initialCourts} hideTitle />}
       {tab === 'contact' && <ContactSettingsClient initialSettings={contactSettings} />}
+      {tab === 'payment' && <PaymentSettingsClient />}
     </div>
   )
 }

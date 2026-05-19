@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
+import { useSiteSettings } from '@/views/providers/SiteSettingsProvider'
 
 type PaymentMethod = 'PIX' | 'CREDIT_CARD'
 
@@ -15,6 +16,7 @@ declare global {
 export function usePaymentViewModel() {
   const router = useRouter()
   const params = useSearchParams()
+  const { mpPublicKey } = useSiteSettings()
   const [method, setMethod] = useState<PaymentMethod>('PIX')
   const [pixQrCode, setPixQrCode] = useState<string | null>(null)
   const [pixQrCodeBase64, setPixQrCodeBase64] = useState<string | null>(null)
@@ -24,6 +26,7 @@ export function usePaymentViewModel() {
   const courtId = params.get('courtId') ?? ''
   const date = params.get('date') ?? ''
   const startTime = params.get('startTime') ?? ''
+  const endTime = params.get('endTime') ?? ''
 
   const { mutateAsync: createBooking, isPending } = useMutation({
     mutationFn: async (data: { paymentToken?: string; cardBrand?: string }) => {
@@ -34,6 +37,7 @@ export function usePaymentViewModel() {
           courtId,
           date,
           startTime,
+          endTime: endTime || undefined,
           paymentMethod: method,
           paymentToken: data.paymentToken,
           cardBrand: data.cardBrand,
@@ -69,7 +73,7 @@ export function usePaymentViewModel() {
   }) => {
     if (cardData) {
       try {
-        const publicKey = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY
+        const publicKey = mpPublicKey || process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY
         if (!publicKey) throw new Error('MercadoPago Public Key missing')
 
         const mp = new window.MercadoPago(publicKey)
@@ -114,6 +118,7 @@ export function usePaymentViewModel() {
     courtId,
     date,
     startTime,
+    endTime,
     pixQrCode,
     pixQrCodeBase64,
     copied,

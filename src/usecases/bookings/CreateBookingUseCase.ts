@@ -5,7 +5,9 @@ import type { Booking } from '@/models/entities/Booking'
 import type { Payment, PaymentMethod } from '@/models/entities/Payment'
 import { BookingError } from '@/core/errors/AppError'
 import { generateAccessCode, calculateDuration, getEndTime } from '@/core/utils/helpers'
-import { mercadoPagoService } from '@/services/MercadoPagoService'
+import { MercadoPagoService } from '@/services/MercadoPagoService'
+import { format, parse } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 
 export interface CreateBookingInput {
   userId: string
@@ -13,6 +15,7 @@ export interface CreateBookingInput {
   courtId: string
   date: string
   startTime: string
+  endTime?: string
   paymentMethod: PaymentMethod
   paymentToken?: string
   cardBrand?: string
@@ -36,7 +39,7 @@ export class CreateBookingUseCase {
     const court = await this.courtRepo.findById(input.courtId)
     if (!court || !court.isActive) throw new BookingError('COURT_NOT_FOUND')
 
-    const endTime = getEndTime(input.startTime, court.slotDuration)
+    const endTime = input.endTime ?? getEndTime(input.startTime, court.slotDuration)
     const duration = calculateDuration(input.startTime, endTime)
 
     const isAvailable = await this.bookingRepo.checkAvailability(
@@ -48,6 +51,13 @@ export class CreateBookingUseCase {
     if (!isAvailable) throw new BookingError('SLOT_NOT_AVAILABLE')
 
     const totalValue = Number(court.pricePerHour) * duration
+
+    // Formata data no padrão brasileiro para descrição no MercadoPago
+    const dateFormatted = format(
+      parse(input.date, 'yyyy-MM-dd', new Date()),
+      'dd/MM/yyyy',
+      { locale: ptBR }
+    )
 
     const booking = await this.bookingRepo.create({
       userId: input.userId,
@@ -72,11 +82,20 @@ export class CreateBookingUseCase {
     let pixExpiration = null
 
     try {
+      const paymentDescription = {
+        courtName: court.name,
+        date: dateFormatted,
+        startTime: input.startTime,
+        endTime,
+      }
+
+      const mp = await MercadoPagoService.create()
       if (input.paymentMethod === 'PIX') {
-        const mpPayment = await mercadoPagoService.createPixPayment({
+        const mpPayment = await mp.createPixPayment({
           externalReference: booking.id,
           amount: totalValue,
           payerEmail: input.userEmail,
+          description: paymentDescription,
         })
         gatewayId = mpPayment.id?.toString() ?? null
         gatewayStatus = mpPayment.status ?? 'PENDING'
@@ -85,12 +104,13 @@ export class CreateBookingUseCase {
         pixQrCodeBase64 = txData?.qr_code_base64 ?? null
         pixExpiration = txData?.expiration_date ? new Date(txData.expiration_date) : null
       } else {
-        const mpPayment = await mercadoPagoService.createCardPayment({
+        const mpPayment = await mp.createCardPayment({
           externalReference: booking.id,
           amount: totalValue,
           payerEmail: input.userEmail,
           token: input.paymentToken ?? '',
           paymentMethodId: input.cardBrand ?? 'visa',
+          description: paymentDescription,
         })
         gatewayId = mpPayment.id?.toString() ?? null
         gatewayStatus = mpPayment.status ?? 'PENDING'
