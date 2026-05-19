@@ -18,6 +18,7 @@ interface CourtDraft {
   name: string
   description: string
   pricePerHour: number
+  maxPlayers: number
   images: string[]
 }
 
@@ -86,6 +87,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
     name: court.name,
     description: court.description,
     pricePerHour: court.pricePerHour,
+    maxPlayers: court.maxPlayers,
     images: initialImages,
   })
 
@@ -163,6 +165,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
           name: draft.name,
           description: draft.description,
           pricePerHour: draft.pricePerHour,
+          maxPlayers: draft.maxPlayers,
           images: draft.images,
         }),
       })
@@ -182,6 +185,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
     draft.name !== court.name ||
     draft.description !== court.description ||
     draft.pricePerHour !== court.pricePerHour ||
+    draft.maxPlayers !== court.maxPlayers ||
     JSON.stringify(draft.images) !== JSON.stringify(initialImages)
 
   return (
@@ -241,6 +245,22 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
           <p className="font-headline text-[10px] text-primary mt-1">
             {draft.pricePerHour > 0 ? `${formatCurrency(draft.pricePerHour)}/h` : 'Gratuito'}
           </p>
+        </div>
+
+        {/* Capacidade */}
+        <div>
+          <label className="font-headline text-[10px] text-on-surface-variant uppercase font-bold tracking-widest mb-1.5 flex items-center gap-1.5">
+            Capacidade (jogadores)
+          </label>
+          <select
+            value={draft.maxPlayers}
+            onChange={(e) => setDraft((d) => ({ ...d, maxPlayers: Number(e.target.value) }))}
+            className="w-full bg-surface-container border border-outline-variant/40 rounded-xl px-3 py-2.5 font-headline text-sm text-on-surface focus:outline-none focus:border-primary/50 transition-colors"
+          >
+            {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
+              <option key={n} value={n}>Até {n} {n === 1 ? 'jogador' : 'jogadores'}</option>
+            ))}
+          </select>
         </div>
 
         {/* Imagens */}
@@ -376,7 +396,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
           {isDirty && (
             <button
               type="button"
-              onClick={() => setDraft({ name: court.name, description: court.description, pricePerHour: court.pricePerHour, images: initialImages })}
+              onClick={() => setDraft({ name: court.name, description: court.description, pricePerHour: court.pricePerHour, maxPlayers: court.maxPlayers, images: initialImages })}
               className="p-2.5 bg-surface-container hover:bg-outline-variant/30 rounded-xl transition-all"
               title="Descartar alterações"
             >

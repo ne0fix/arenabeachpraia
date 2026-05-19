@@ -56,7 +56,7 @@ export function CourtCard({ court }: CourtCardProps) {
           )}
         </div>
 
-        <p className="text-on-surface-variant text-xs md:text-sm line-clamp-2 mb-4 md:mb-6 font-medium leading-relaxed">
+        <p className="text-on-surface-variant text-xs md:text-sm mb-4 md:mb-6 font-medium leading-relaxed">
           {court.description}
         </p>
 
