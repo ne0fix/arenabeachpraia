@@ -25,6 +25,7 @@ export function BottomNav() {
           <Link
             key={item.path}
             href={item.path}
+            scroll={!isActive}
             className={cn(
               'relative flex flex-col items-center gap-1 py-1 min-w-[64px] transition-all active:scale-90',
               isActive ? 'text-primary' : 'text-on-surface-variant/50'

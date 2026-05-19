@@ -33,17 +33,22 @@
 }
 
 @layer base {
-  html, body {
-    height: 100%;
+  html {
+    margin: 0;
+    padding: 0;
+    /* height: 100% e overflow-x no html criam scroll container separado do body,
+       causando scroll reset automático em mobile quando address bar aparece/some */
+  }
+  body {
     margin: 0;
     padding: 0;
     max-width: 100vw;
     overflow-x: hidden;
-  }
-  body {
-    @apply bg-surface text-on-surface font-sans antialiased;
     min-height: 100dvh;
     position: relative;
+    /* Previne pull-to-refresh no Chrome mobile e bounce scroll que resetam posição */
+    overscroll-behavior-y: none;
+    @apply bg-surface text-on-surface font-sans antialiased;
   }
 }
 
