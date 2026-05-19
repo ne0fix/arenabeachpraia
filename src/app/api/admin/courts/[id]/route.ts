@@ -17,7 +17,7 @@ export async function PUT(
 
   const allowed = [
     'name', 'description', 'pricePerHour', 'images', 'imageUrl', 'isActive',
-    'amenities', 'location', 'maxPlayers', 'openTime', 'closeTime', 'slotDuration',
+    'amenities', 'location', 'maxPlayers', 'showCapacity', 'openTime', 'closeTime', 'slotDuration',
     'morningOpen', 'morningClose', 'morningEnabled',
     'afternoonOpen', 'afternoonClose', 'afternoonEnabled',
   ]

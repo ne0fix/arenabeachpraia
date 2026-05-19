@@ -60,12 +60,14 @@ export function CourtCard({ court }: CourtCardProps) {
           {court.description}
         </p>
 
-        <div className="flex items-center gap-2 mb-5 md:mb-6">
-          <div className="flex items-center gap-1 bg-surface-container px-2 py-1 rounded-lg">
-            <Users className="w-3.5 h-3.5 text-primary" />
-            <span className="font-headline text-[10px] md:text-xs text-on-surface font-bold">Até {court.maxPlayers}</span>
+        {court.showCapacity && (
+          <div className="flex items-center gap-2 mb-5 md:mb-6">
+            <div className="flex items-center gap-1 bg-surface-container px-2 py-1 rounded-lg">
+              <Users className="w-3.5 h-3.5 text-primary" />
+              <span className="font-headline text-[10px] md:text-xs text-on-surface font-bold">Até {court.maxPlayers}</span>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="mt-auto">
           {isExclusive ? (

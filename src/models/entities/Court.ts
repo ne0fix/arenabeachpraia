@@ -10,6 +10,7 @@ export interface Court {
   type: CourtType
   amenities: string[]
   maxPlayers: number
+  showCapacity: boolean
   location: string
   isActive: boolean
   openTime: string

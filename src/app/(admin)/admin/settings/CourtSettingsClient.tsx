@@ -19,6 +19,7 @@ interface CourtDraft {
   description: string
   pricePerHour: number
   maxPlayers: number
+  showCapacity: boolean
   images: string[]
 }
 
@@ -88,6 +89,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
     description: court.description,
     pricePerHour: court.pricePerHour,
     maxPlayers: court.maxPlayers,
+    showCapacity: court.showCapacity,
     images: initialImages,
   })
 
@@ -166,6 +168,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
           description: draft.description,
           pricePerHour: draft.pricePerHour,
           maxPlayers: draft.maxPlayers,
+          showCapacity: draft.showCapacity,
           images: draft.images,
         }),
       })
@@ -186,6 +189,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
     draft.description !== court.description ||
     draft.pricePerHour !== court.pricePerHour ||
     draft.maxPlayers !== court.maxPlayers ||
+    draft.showCapacity !== court.showCapacity ||
     JSON.stringify(draft.images) !== JSON.stringify(initialImages)
 
   return (
@@ -248,8 +252,8 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
         </div>
 
         {/* Capacidade */}
-        <div>
-          <label className="font-headline text-[10px] text-on-surface-variant uppercase font-bold tracking-widest mb-1.5 flex items-center gap-1.5">
+        <div className="space-y-2">
+          <label className="font-headline text-[10px] text-on-surface-variant uppercase font-bold tracking-widest flex items-center gap-1.5">
             Capacidade (jogadores)
           </label>
           <select
@@ -261,6 +265,18 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
               <option key={n} value={n}>Até {n} {n === 1 ? 'jogador' : 'jogadores'}</option>
             ))}
           </select>
+          <button
+            type="button"
+            onClick={() => setDraft((d) => ({ ...d, showCapacity: !d.showCapacity }))}
+            className="flex items-center justify-between w-full bg-surface-container border border-outline-variant/40 rounded-xl px-3 py-2.5 transition-colors hover:border-primary/30"
+          >
+            <span className="font-headline text-xs text-on-surface-variant">
+              Exibir capacidade na página principal
+            </span>
+            <span className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${draft.showCapacity ? 'bg-primary' : 'bg-outline-variant/50'}`}>
+              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${draft.showCapacity ? 'left-[17px]' : 'left-0.5'}`} />
+            </span>
+          </button>
         </div>
 
         {/* Imagens */}
@@ -396,7 +412,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
           {isDirty && (
             <button
               type="button"
-              onClick={() => setDraft({ name: court.name, description: court.description, pricePerHour: court.pricePerHour, maxPlayers: court.maxPlayers, images: initialImages })}
+              onClick={() => setDraft({ name: court.name, description: court.description, pricePerHour: court.pricePerHour, maxPlayers: court.maxPlayers, showCapacity: court.showCapacity, images: initialImages })}
               className="p-2.5 bg-surface-container hover:bg-outline-variant/30 rounded-xl transition-all"
               title="Descartar alterações"
             >
