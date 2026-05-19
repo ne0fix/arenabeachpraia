@@ -133,9 +133,10 @@ model SiteSettings {
   msgContact     String   @default("Olá! Gostaria de mais informações sobre a Arena Beach Serra.")
   msgExclusive   String   @default("Olá! Tenho interesse em agendar o espaço exclusivo \"{nome}\". Poderia me passar mais informações?")
   msgSupport     String   @default("Olá! Preciso de suporte com meu agendamento.")
-  mpAccessToken  String   @default("")
-  mpPublicKey    String   @default("")
-  mpWebhookSecret String  @default("")
+  mpAccessToken    String   @default("")
+  mpPublicKey      String   @default("")
+  mpWebhookSecret  String   @default("")
+  mpNotificationUrl String  @default("")
   updatedAt      DateTime @updatedAt
 
   @@map("site_settings")

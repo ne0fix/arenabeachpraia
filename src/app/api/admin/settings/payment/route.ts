@@ -11,9 +11,10 @@ export async function GET() {
 
   const s = await prisma.siteSettings.findUnique({ where: { id: 'singleton' } })
   return NextResponse.json({
-    mpAccessToken:   s?.mpAccessToken   ?? '',
-    mpPublicKey:     s?.mpPublicKey     ?? '',
-    mpWebhookSecret: s?.mpWebhookSecret ?? '',
+    mpAccessToken:    s?.mpAccessToken    ?? '',
+    mpPublicKey:      s?.mpPublicKey      ?? '',
+    mpWebhookSecret:  s?.mpWebhookSecret  ?? '',
+    mpNotificationUrl: s?.mpNotificationUrl ?? '',
   })
 }
 
@@ -24,7 +25,7 @@ export async function PUT(request: Request) {
   }
 
   const body = await request.json()
-  const allowed = ['mpAccessToken', 'mpPublicKey', 'mpWebhookSecret']
+  const allowed = ['mpAccessToken', 'mpPublicKey', 'mpWebhookSecret', 'mpNotificationUrl']
   const data: Record<string, string> = {}
   for (const key of allowed) {
     if (key in body && typeof body[key] === 'string') data[key] = body[key].trim()
@@ -37,8 +38,9 @@ export async function PUT(request: Request) {
   })
 
   return NextResponse.json({
-    mpAccessToken:   settings.mpAccessToken,
-    mpPublicKey:     settings.mpPublicKey,
-    mpWebhookSecret: settings.mpWebhookSecret,
+    mpAccessToken:    settings.mpAccessToken,
+    mpPublicKey:      settings.mpPublicKey,
+    mpWebhookSecret:  settings.mpWebhookSecret,
+    mpNotificationUrl: settings.mpNotificationUrl,
   })
 }

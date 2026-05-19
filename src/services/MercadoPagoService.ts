@@ -37,11 +37,16 @@ export class MercadoPagoService {
 
   static async create(): Promise<MercadoPagoService> {
     const s = await prisma.siteSettings.findUnique({ where: { id: 'singleton' } }).catch(() => null)
-    const token = (s?.mpAccessToken && s.mpAccessToken.trim())
+    const token = (s?.mpAccessToken?.trim())
       ? s.mpAccessToken.trim()
       : (process.env.MERCADOPAGO_ACCESS_TOKEN ?? '')
-    return new MercadoPagoService(token)
+    const notifUrl = (s?.mpNotificationUrl?.trim()) || undefined
+    const svc = new MercadoPagoService(token)
+    svc.notificationUrl = notifUrl
+    return svc
   }
+
+  public notificationUrl?: string
 
   private buildDescription(d: PaymentDescription): string {
     return `${d.courtName} | ${d.date} | ${d.startTime}–${d.endTime}`
@@ -49,9 +54,12 @@ export class MercadoPagoService {
 
   async createPixPayment(input: CreatePixInput) {
     try {
-      const notificationUrl = process.env.NEXTAUTH_URL
-        ? `${process.env.NEXTAUTH_URL}/api/payments/webhook`
-        : undefined
+      // Prioridade: URL configurada no banco → NEXTAUTH_URL (apenas HTTPS)
+      const notificationUrl = this.notificationUrl
+        ?? (() => {
+          const base = (process.env.NEXTAUTH_URL ?? '').trim().replace(/\/+$/, '')
+          return base.startsWith('https://') ? `${base}/api/payments/webhook` : undefined
+        })()
 
       const description = this.buildDescription(input.description)
       const result = await this.paymentClient.create({

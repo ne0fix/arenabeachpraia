@@ -7,9 +7,10 @@ interface PaymentSettings {
   mpAccessToken: string
   mpPublicKey: string
   mpWebhookSecret: string
+  mpNotificationUrl: string
 }
 
-const EMPTY: PaymentSettings = { mpAccessToken: '', mpPublicKey: '', mpWebhookSecret: '' }
+const EMPTY: PaymentSettings = { mpAccessToken: '', mpPublicKey: '', mpWebhookSecret: '', mpNotificationUrl: '' }
 
 const inputCls =
   'w-full bg-surface-container border border-outline-variant/40 rounded-xl px-3 py-2.5 font-headline text-sm text-on-surface focus:outline-none focus:border-primary/50 transition-colors placeholder:text-on-surface-variant/40'
@@ -108,7 +109,12 @@ export function PaymentSettingsClient() {
     fetch('/api/admin/settings/payment')
       .then((r) => r.json())
       .then((data) => {
-        const s = { mpAccessToken: data.mpAccessToken ?? '', mpPublicKey: data.mpPublicKey ?? '', mpWebhookSecret: data.mpWebhookSecret ?? '' }
+        const s = {
+        mpAccessToken:    data.mpAccessToken    ?? '',
+        mpPublicKey:      data.mpPublicKey      ?? '',
+        mpWebhookSecret:  data.mpWebhookSecret  ?? '',
+        mpNotificationUrl: data.mpNotificationUrl ?? '',
+      }
         setDraft(s)
         setCommitted(s)
       })
@@ -211,6 +217,22 @@ export function PaymentSettingsClient() {
             onChange={set('mpWebhookSecret')}
             placeholder="abc123..."
           />
+
+          <div>
+            <label className="font-headline text-[10px] text-on-surface-variant uppercase font-bold tracking-widest mb-1.5 flex items-center gap-1.5">
+              <Webhook className="w-3 h-3" /> URL de Notificação (notification_url)
+            </label>
+            <input
+              type="url"
+              value={draft.mpNotificationUrl}
+              onChange={(e) => setDraft((d) => ({ ...d, mpNotificationUrl: e.target.value.trim() }))}
+              placeholder="https://seudominio.com.br/api/payments/webhook"
+              className={inputCls}
+            />
+            <p className="font-headline text-[10px] text-on-surface-variant mt-1">
+              URL enviada ao MP em cada pagamento PIX. Deixe em branco para usar o webhook configurado no painel do MP.
+            </p>
+          </div>
 
           {error && (
             <p className="font-headline text-[10px] text-red-500 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
