@@ -5,12 +5,13 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { AlertCircle, RefreshCw, MessageCircle } from 'lucide-react'
 import { motion } from 'motion/react'
 import { Button } from '@/views/components/ui/Button'
-import { whatsAppService } from '@/services/WhatsAppService'
+import { useSiteSettings, buildWaLink } from '@/views/providers/SiteSettingsProvider'
 
 function ErrorContent() {
   const params = useSearchParams()
   const router = useRouter()
   const code = params.get('code') ?? 'UNKNOWN_ERROR'
+  const { whatsappNumber, msgSupport } = useSiteSettings()
 
   return (
     <main className="flex-1 w-full max-w-md mx-auto px-6 flex flex-col items-center justify-center pt-12 pb-24 md:py-12">
@@ -43,7 +44,7 @@ function ErrorContent() {
           variant="whatsapp"
           className="w-full h-14"
           leftIcon={<MessageCircle className="w-5 h-5" />}
-          onClick={() => window.open(whatsAppService.getSupportLink(), '_blank')}
+          onClick={() => window.open(buildWaLink(whatsappNumber, msgSupport), '_blank')}
         >
           Falar com Suporte
         </Button>

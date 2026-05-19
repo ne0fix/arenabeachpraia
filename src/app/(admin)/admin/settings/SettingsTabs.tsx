@@ -14,6 +14,9 @@ interface ContactSettings {
   hoursWeekdays: string
   hoursSaturday: string
   hoursSunday: string
+  msgContact: string
+  msgExclusive: string
+  msgSupport: string
 }
 
 interface Props {

@@ -11,6 +11,7 @@ const DEFAULTS = {
   hoursWeekdays: 'Seg–Sex: 6h–22h',
   hoursSaturday: 'Sábado: 6h–23h',
   hoursSunday: 'Domingo: 6h–21h',
+  msgContact: 'Olá! Gostaria de mais informações sobre a Arena Beach Serra.',
 }
 
 export default async function ContactPage() {
@@ -18,7 +19,7 @@ export default async function ContactPage() {
   const s = raw ?? DEFAULTS
 
   const waNumber = s.whatsappNumber.replace(/\D/g, '')
-  const waLink = `https://wa.me/${waNumber}?text=${encodeURIComponent('Olá! Gostaria de mais informações sobre a Arena Beach Serra.')}`
+  const waLink = `https://wa.me/${waNumber}?text=${encodeURIComponent(s.msgContact)}`
   const phoneRaw = s.phone.replace(/\D/g, '')
 
   const hasHours = s.hoursWeekdays || s.hoursSaturday || s.hoursSunday

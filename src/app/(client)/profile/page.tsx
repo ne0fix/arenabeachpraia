@@ -5,7 +5,7 @@ import { signOut, useSession } from 'next-auth/react'
 import { ArrowLeft, Mail, Phone, Calendar, Settings, LogOut, Star, CreditCard, Bell, Shield, HelpCircle, ChevronRight } from 'lucide-react'
 import { motion } from 'motion/react'
 import { Button } from '@/views/components/ui/Button'
-import { whatsAppService } from '@/services/WhatsAppService'
+import { useSiteSettings, buildWaLink } from '@/views/providers/SiteSettingsProvider'
 import { ROUTES } from '@/core/constants/config'
 
 const menuItems = [
@@ -20,6 +20,7 @@ const menuItems = [
 export default function ProfilePage() {
   const router = useRouter()
   const { data: session } = useSession()
+  const { whatsappNumber, msgContact } = useSiteSettings()
 
   return (
     <>
@@ -92,7 +93,7 @@ export default function ProfilePage() {
           <Button
             variant="whatsapp"
             className="w-full"
-            onClick={() => window.open(whatsAppService.getContactLink(), '_blank')}
+            onClick={() => window.open(buildWaLink(whatsappNumber, msgContact), '_blank')}
           >
             Falar no WhatsApp
           </Button>

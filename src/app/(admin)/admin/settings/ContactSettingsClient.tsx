@@ -11,6 +11,9 @@ interface ContactSettings {
   hoursWeekdays: string
   hoursSaturday: string
   hoursSunday: string
+  msgContact: string
+  msgExclusive: string
+  msgSupport: string
 }
 
 interface Props {
@@ -25,6 +28,9 @@ const DEFAULTS: ContactSettings = {
   hoursWeekdays: 'Seg–Sex: 6h–22h',
   hoursSaturday: 'Sábado: 6h–23h',
   hoursSunday: 'Domingo: 6h–21h',
+  msgContact:   'Olá! Gostaria de mais informações sobre a Arena Beach Serra.',
+  msgExclusive: 'Olá! Tenho interesse em agendar o espaço exclusivo "{nome}". Poderia me passar mais informações?',
+  msgSupport:   'Olá! Preciso de suporte com meu agendamento.',
 }
 
 function Field({
@@ -51,6 +57,9 @@ function Field({
 
 const inputCls =
   'w-full bg-surface-container border border-outline-variant/40 rounded-xl px-3 py-2.5 font-headline text-sm text-on-surface focus:outline-none focus:border-primary/50 transition-colors placeholder:text-on-surface-variant/40'
+
+const textareaCls =
+  'w-full bg-surface-container border border-outline-variant/40 rounded-xl px-3 py-2.5 font-headline text-sm text-on-surface focus:outline-none focus:border-primary/50 transition-colors placeholder:text-on-surface-variant/40 resize-none'
 
 export function ContactSettingsClient({ initialSettings }: Props) {
   const base = initialSettings ?? DEFAULTS
@@ -157,6 +166,55 @@ export function ContactSettingsClient({ initialSettings }: Props) {
                 className={inputCls}
               />
             </div>
+          </Field>
+
+          {/* Separador */}
+          <div className="border-t border-outline-variant/30 pt-1">
+            <p className="font-headline text-[10px] text-on-surface-variant uppercase font-bold tracking-widest flex items-center gap-1.5 mb-4">
+              <MessageCircle className="w-3 h-3" /> Mensagens WhatsApp
+            </p>
+          </div>
+
+          <Field
+            label="Mensagem de Contato Geral"
+            icon={<MessageCircle className="w-3 h-3" />}
+            hint='Enviada ao clicar no WhatsApp da página de Contato e do Perfil.'
+          >
+            <textarea
+              value={draft.msgContact}
+              onChange={(e) => setDraft((d) => ({ ...d, msgContact: e.target.value }))}
+              rows={2}
+              placeholder="Olá! Gostaria de mais informações..."
+              className={textareaCls}
+            />
+          </Field>
+
+          <Field
+            label="Mensagem — Espaço Exclusivo"
+            icon={<MessageCircle className="w-3 h-3" />}
+            hint='Use {nome} para inserir o nome da quadra automaticamente.'
+          >
+            <textarea
+              value={draft.msgExclusive}
+              onChange={(e) => setDraft((d) => ({ ...d, msgExclusive: e.target.value }))}
+              rows={2}
+              placeholder='Olá! Tenho interesse em agendar o espaço exclusivo "{nome}"...'
+              className={textareaCls}
+            />
+          </Field>
+
+          <Field
+            label="Mensagem de Suporte"
+            icon={<MessageCircle className="w-3 h-3" />}
+            hint='Enviada ao clicar em suporte na página de erro de reserva.'
+          >
+            <textarea
+              value={draft.msgSupport}
+              onChange={(e) => setDraft((d) => ({ ...d, msgSupport: e.target.value }))}
+              rows={2}
+              placeholder="Olá! Preciso de suporte com meu agendamento."
+              className={textareaCls}
+            />
           </Field>
 
           {error && (

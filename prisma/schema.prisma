@@ -130,6 +130,9 @@ model SiteSettings {
   hoursWeekdays  String   @default("Seg–Sex: 6h–22h")
   hoursSaturday  String   @default("Sábado: 6h–23h")
   hoursSunday    String   @default("Domingo: 6h–21h")
+  msgContact     String   @default("Olá! Gostaria de mais informações sobre a Arena Beach Serra.")
+  msgExclusive   String   @default("Olá! Tenho interesse em agendar o espaço exclusivo \"{nome}\". Poderia me passar mais informações?")
+  msgSupport     String   @default("Olá! Preciso de suporte com meu agendamento.")
   updatedAt      DateTime @updatedAt
 
   @@map("site_settings")

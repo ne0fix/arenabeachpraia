@@ -4,8 +4,8 @@ import Link from 'next/link'
 import { MapPin, Users, ArrowRight, MessageCircle } from 'lucide-react'
 import { Button } from '@/views/components/ui/Button'
 import { formatCurrency } from '@/core/utils/formatCurrency'
-import { whatsAppService } from '@/services/WhatsAppService'
 import { CourtImageCarousel } from '@/views/components/business/CourtImageCarousel'
+import { useSiteSettings, buildWaLink } from '@/views/providers/SiteSettingsProvider'
 import type { Court } from '@/models/entities/Court'
 
 interface CourtCardProps {
@@ -14,6 +14,7 @@ interface CourtCardProps {
 
 export function CourtCard({ court }: CourtCardProps) {
   const isExclusive = court.type === 'EXCLUSIVE'
+  const { whatsappNumber, msgExclusive } = useSiteSettings()
 
   return (
     <div className="flex flex-col group h-full bg-surface-container-lowest rounded-2xl border border-outline-variant/30 overflow-hidden sun-shadow transition-all hover:border-primary/20">
@@ -75,7 +76,7 @@ export function CourtCard({ court }: CourtCardProps) {
               variant="whatsapp"
               className="w-full h-11 md:h-12 text-xs md:text-sm"
               leftIcon={<MessageCircle className="w-4 h-4 md:w-5 md:h-5" />}
-              onClick={() => window.open(whatsAppService.getExclusiveLink(court.name), '_blank')}
+              onClick={() => window.open(buildWaLink(whatsappNumber, msgExclusive, court.name), '_blank')}
             >
               Falar no WhatsApp
             </Button>
