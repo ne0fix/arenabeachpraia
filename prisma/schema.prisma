@@ -121,6 +121,20 @@ model Court {
   @@map("courts")
 }
 
+model SiteSettings {
+  id             String   @id @default("singleton")
+  whatsappNumber String   @default("5511999999999")
+  phone          String   @default("(11) 99999-9999")
+  email          String   @default("contato@arenabeachserra.com.br")
+  address        String   @default("Av. Beira Mar, 1234 — Serra, ES")
+  hoursWeekdays  String   @default("Seg–Sex: 6h–22h")
+  hoursSaturday  String   @default("Sábado: 6h–23h")
+  hoursSunday    String   @default("Domingo: 6h–21h")
+  updatedAt      DateTime @updatedAt
+
+  @@map("site_settings")
+}
+
 enum CourtType {
   REGULAR
   EXCLUSIVE

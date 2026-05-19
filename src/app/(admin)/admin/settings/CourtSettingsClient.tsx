@@ -12,6 +12,7 @@ import type { Court } from '@/models/entities/Court'
 
 interface Props {
   initialCourts: Court[]
+  hideTitle?: boolean
 }
 
 interface CourtDraft {
@@ -427,7 +428,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
 
 // ─── Página principal ──────────────────────────────────────────────────────────
 
-export function CourtSettingsClient({ initialCourts }: Props) {
+export function CourtSettingsClient({ initialCourts, hideTitle }: Props) {
   const [courts, setCourts] = useState(initialCourts)
   const { socket } = useSocket()
 
@@ -447,12 +448,14 @@ export function CourtSettingsClient({ initialCourts }: Props) {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="font-headline text-2xl text-on-surface font-bold">Configurações</h1>
-        <p className="font-headline text-xs text-on-surface-variant uppercase tracking-widest mt-1">
-          Gerencie imagens, preços e descrições das quadras
-        </p>
-      </div>
+      {!hideTitle && (
+        <div>
+          <h1 className="font-headline text-2xl text-on-surface font-bold">Configurações</h1>
+          <p className="font-headline text-xs text-on-surface-variant uppercase tracking-widest mt-1">
+            Gerencie imagens, preços e descrições das quadras
+          </p>
+        </div>
+      )}
 
       <section>
         <div className="flex items-center gap-2 mb-4">

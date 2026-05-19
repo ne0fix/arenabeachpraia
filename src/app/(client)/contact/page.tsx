@@ -1,79 +1,141 @@
 import { MessageCircle, Phone, Mail, MapPin, Clock } from 'lucide-react'
-import { whatsAppService } from '@/services/WhatsAppService'
+import { prisma } from '@/infrastructure/database/prisma'
 
-export default function ContactPage() {
+export const revalidate = 0
+
+const DEFAULTS = {
+  whatsappNumber: '5511999999999',
+  phone: '(11) 99999-9999',
+  email: 'contato@arenabeachserra.com.br',
+  address: 'Av. Beira Mar, 1234 — Serra, ES',
+  hoursWeekdays: 'Seg–Sex: 6h–22h',
+  hoursSaturday: 'Sábado: 6h–23h',
+  hoursSunday: 'Domingo: 6h–21h',
+}
+
+export default async function ContactPage() {
+  const raw = await prisma.siteSettings.findUnique({ where: { id: 'singleton' } }).catch(() => null)
+  const s = raw ?? DEFAULTS
+
+  const waNumber = s.whatsappNumber.replace(/\D/g, '')
+  const waLink = `https://wa.me/${waNumber}?text=${encodeURIComponent('Olá! Gostaria de mais informações sobre a Arena Beach Serra.')}`
+  const phoneRaw = s.phone.replace(/\D/g, '')
+
+  const hasHours = s.hoursWeekdays || s.hoursSaturday || s.hoursSunday
+
   return (
-    <section className="px-6 py-6 pb-24 md:pb-12 max-w-2xl mx-auto">
-      <div className="flex flex-col gap-1 mb-8">
+    <section className="w-full max-w-md mx-auto px-4 pt-6 pb-28 md:pb-12">
+
+      {/* Cabeçalho */}
+      <div className="mb-6">
         <span className="font-headline text-[10px] text-primary uppercase tracking-widest font-bold">
           Atendimento
         </span>
-        <h2 className="font-headline text-3xl text-on-surface font-bold tracking-tight">Fale Conosco</h2>
+        <h1 className="font-headline text-2xl md:text-3xl text-on-surface font-bold tracking-tight mt-0.5">
+          Fale Conosco
+        </h1>
       </div>
 
-      <div className="space-y-4 mb-8">
+      {/* Botões de contato */}
+      <div className="flex flex-col gap-3 mb-5">
+
+        {/* WhatsApp */}
         <a
-          href={whatsAppService.getContactLink()}
+          href={waLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center gap-4 p-5 bg-whatsapp text-white rounded-2xl sun-shadow transition-all hover:brightness-110 active:scale-95"
+          className="flex items-center gap-3 p-4 bg-whatsapp text-white rounded-2xl sun-shadow transition-all hover:brightness-110 active:scale-[0.98]"
         >
-          <div className="p-2 bg-white/20 rounded-xl">
-            <MessageCircle className="w-6 h-6" />
+          <div className="p-2 bg-white/20 rounded-xl flex-shrink-0">
+            <MessageCircle className="w-5 h-5" />
           </div>
-          <div>
-            <p className="font-headline text-lg font-bold">WhatsApp</p>
-            <p className="font-headline text-xs opacity-80 uppercase tracking-wider">Atendimento imediato</p>
-          </div>
-        </a>
-
-        <a
-          href="tel:+5511999999999"
-          className="flex items-center gap-4 p-5 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl sun-shadow transition-all hover:border-primary active:scale-95"
-        >
-          <div className="p-2 bg-primary/10 rounded-xl">
-            <Phone className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <p className="font-headline text-lg text-on-surface font-bold">Ligação</p>
-            <p className="font-headline text-xs text-on-surface-variant uppercase tracking-wider">
-              (11) 99999-9999
+          <div className="min-w-0">
+            <p className="font-headline text-base font-bold leading-tight">WhatsApp</p>
+            <p className="font-headline text-[11px] opacity-80 uppercase tracking-wider">
+              Atendimento imediato
             </p>
           </div>
         </a>
 
-        <a
-          href="mailto:contato@arenabeachserra.com.br"
-          className="flex items-center gap-4 p-5 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl sun-shadow transition-all hover:border-primary active:scale-95"
-        >
-          <div className="p-2 bg-primary/10 rounded-xl">
-            <Mail className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <p className="font-headline text-lg text-on-surface font-bold">E-mail</p>
-            <p className="font-headline text-xs text-on-surface-variant">contato@arenabeachserra.com.br</p>
-          </div>
-        </a>
+        {/* Telefone */}
+        {s.phone && (
+          <a
+            href={`tel:+${phoneRaw}`}
+            className="flex items-center gap-3 p-4 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl sun-shadow transition-all hover:border-primary/40 active:scale-[0.98]"
+          >
+            <div className="p-2 bg-primary/10 rounded-xl flex-shrink-0">
+              <Phone className="w-5 h-5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-headline text-base text-on-surface font-bold leading-tight">Ligação</p>
+              <p className="font-headline text-[11px] text-on-surface-variant uppercase tracking-wider truncate">
+                {s.phone}
+              </p>
+            </div>
+          </a>
+        )}
+
+        {/* E-mail */}
+        {s.email && (
+          <a
+            href={`mailto:${s.email}`}
+            className="flex items-center gap-3 p-4 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl sun-shadow transition-all hover:border-primary/40 active:scale-[0.98]"
+          >
+            <div className="p-2 bg-primary/10 rounded-xl flex-shrink-0">
+              <Mail className="w-5 h-5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-headline text-base text-on-surface font-bold leading-tight">E-mail</p>
+              <p className="font-headline text-[11px] text-on-surface-variant truncate">
+                {s.email}
+              </p>
+            </div>
+          </a>
+        )}
       </div>
 
-      <div className="bg-surface-container rounded-2xl p-6 space-y-4">
-        <div className="flex items-start gap-3">
-          <MapPin className="w-5 h-5 text-primary mt-1" />
-          <div>
-            <p className="font-headline text-sm text-on-surface font-bold">Localização</p>
-            <p className="text-on-surface-variant text-sm">Av. Beira Mar, 1234 — Bogotá, SP</p>
-          </div>
+      {/* Informações gerais */}
+      {(s.address || hasHours) && (
+        <div className="bg-surface-container rounded-2xl p-4 space-y-4">
+
+          {s.address && (
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex-shrink-0">
+                <MapPin className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <p className="font-headline text-xs text-on-surface font-bold mb-0.5">Localização</p>
+                <p className="text-on-surface-variant text-sm leading-snug">{s.address}</p>
+              </div>
+            </div>
+          )}
+
+          {hasHours && (
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex-shrink-0">
+                <Clock className="w-4 h-4 text-primary" />
+              </div>
+              <div>
+                <p className="font-headline text-xs text-on-surface font-bold mb-0.5">
+                  Horário de Funcionamento
+                </p>
+                <div className="space-y-0.5">
+                  {s.hoursWeekdays && (
+                    <p className="text-on-surface-variant text-sm leading-snug">{s.hoursWeekdays}</p>
+                  )}
+                  {s.hoursSaturday && (
+                    <p className="text-on-surface-variant text-sm leading-snug">{s.hoursSaturday}</p>
+                  )}
+                  {s.hoursSunday && (
+                    <p className="text-on-surface-variant text-sm leading-snug">{s.hoursSunday}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
-        <div className="flex items-start gap-3">
-          <Clock className="w-5 h-5 text-primary mt-1" />
-          <div>
-            <p className="font-headline text-sm text-on-surface font-bold">Horário de Funcionamento</p>
-            <p className="text-on-surface-variant text-sm">Seg–Sex: 6h–22h</p>
-            <p className="text-on-surface-variant text-sm">Sábado: 6h–23h</p>
-            <p className="text-on-surface-variant text-sm">Domingo: 6h–21h</p>
-          </div>
-        </div>
-      </div>
+      )}
     </section>
   )
 }
