@@ -89,7 +89,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
     name: court.name,
     description: court.description,
     pricePerHour: court.pricePerHour,
-    maxPlayers: court.maxPlayers,
+    maxPlayers: Math.min(Math.max(court.maxPlayers, 1), 12),
     showCapacity: court.showCapacity,
     images: initialImages,
   })
@@ -413,7 +413,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
           {isDirty && (
             <button
               type="button"
-              onClick={() => setDraft({ name: court.name, description: court.description, pricePerHour: court.pricePerHour, maxPlayers: court.maxPlayers, showCapacity: court.showCapacity, images: initialImages })}
+              onClick={() => setDraft({ name: court.name, description: court.description, pricePerHour: court.pricePerHour, maxPlayers: Math.min(Math.max(court.maxPlayers, 1), 12), showCapacity: court.showCapacity, images: initialImages })}
               className="p-2.5 bg-surface-container hover:bg-outline-variant/30 rounded-xl transition-all"
               title="Descartar alterações"
             >

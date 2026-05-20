@@ -56,10 +56,12 @@ export default function BookingPage({ params }: BookingPageProps) {
               <MapPin className="w-4 h-4 text-primary flex-shrink-0" />
               <span className="font-headline text-[11px] font-bold truncate">{vm.court.location}</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <Users className="w-4 h-4 text-primary" />
-              <span className="font-headline text-[11px] font-bold">Até {vm.court.maxPlayers} jogadores</span>
-            </div>
+            {vm.court.showCapacity && (
+              <div className="flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-primary" />
+                <span className="font-headline text-[11px] font-bold">Até {vm.court.maxPlayers} jogadores</span>
+              </div>
+            )}
           </div>
         </section>
 
