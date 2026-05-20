@@ -102,6 +102,7 @@ model Court {
   maxPlayers   Int
   showCapacity Boolean   @default(true)
   location     String
+  courtWhatsapp    String    @default("")
   isActive         Boolean   @default(true)
   openTime         String    @default("06:00")
   closeTime        String    @default("22:00")

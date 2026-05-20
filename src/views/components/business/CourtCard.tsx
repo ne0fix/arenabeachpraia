@@ -14,7 +14,9 @@ interface CourtCardProps {
 
 export function CourtCard({ court }: CourtCardProps) {
   const isExclusive = court.type === 'EXCLUSIVE'
-  const { whatsappNumber, msgExclusive } = useSiteSettings()
+  const { whatsappNumber: globalWhatsapp, msgExclusive } = useSiteSettings()
+  // Usa o WhatsApp específico da quadra se configurado, senão o global
+  const whatsappNumber = court.courtWhatsapp?.trim() || globalWhatsapp
 
   return (
     <div className="flex flex-col group h-full bg-surface-container-lowest rounded-2xl border border-outline-variant/30 overflow-hidden sun-shadow transition-all hover:border-primary/20">

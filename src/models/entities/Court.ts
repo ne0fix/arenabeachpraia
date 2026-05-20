@@ -11,6 +11,7 @@ export interface Court {
   amenities: string[]
   maxPlayers: number
   showCapacity: boolean
+  courtWhatsapp: string
   location: string
   isActive: boolean
   openTime: string

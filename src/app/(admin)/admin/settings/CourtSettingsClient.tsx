@@ -5,7 +5,7 @@ import { useSocket } from '@/views/providers/SocketProvider'
 import Image from 'next/image'
 import {
   ChevronLeft, ChevronRight, Plus, Trash2, Save, X,
-  ImageIcon, DollarSign, FileText, Eye, Upload, Link2, Loader2,
+  ImageIcon, DollarSign, FileText, Eye, Upload, Link2, Loader2, MessageCircle,
 } from 'lucide-react'
 import { formatCurrency } from '@/core/utils/formatCurrency'
 import type { Court } from '@/models/entities/Court'
@@ -21,6 +21,7 @@ interface CourtDraft {
   pricePerHour: number
   maxPlayers: number
   showCapacity: boolean
+  courtWhatsapp: string
   images: string[]
 }
 
@@ -91,6 +92,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
     pricePerHour: court.pricePerHour,
     maxPlayers: Math.min(Math.max(court.maxPlayers, 1), 12),
     showCapacity: court.showCapacity,
+    courtWhatsapp: court.courtWhatsapp ?? '',
     images: initialImages,
   })
 
@@ -170,6 +172,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
           pricePerHour: draft.pricePerHour,
           maxPlayers: draft.maxPlayers,
           showCapacity: draft.showCapacity,
+          courtWhatsapp: draft.courtWhatsapp.trim(),
           images: draft.images,
         }),
       })
@@ -191,6 +194,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
     draft.pricePerHour !== court.pricePerHour ||
     draft.maxPlayers !== court.maxPlayers ||
     draft.showCapacity !== court.showCapacity ||
+    draft.courtWhatsapp.trim() !== (court.courtWhatsapp ?? '') ||
     JSON.stringify(draft.images) !== JSON.stringify(initialImages)
 
   return (
@@ -278,6 +282,23 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
               <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${draft.showCapacity ? 'left-[17px]' : 'left-0.5'}`} />
             </span>
           </button>
+        </div>
+
+        {/* WhatsApp da quadra */}
+        <div>
+          <label className="font-headline text-[10px] text-on-surface-variant uppercase font-bold tracking-widest mb-1.5 flex items-center gap-1.5">
+            <MessageCircle className="w-3 h-3" /> WhatsApp desta Quadra (opcional)
+          </label>
+          <input
+            type="tel"
+            value={draft.courtWhatsapp}
+            onChange={(e) => setDraft((d) => ({ ...d, courtWhatsapp: e.target.value }))}
+            placeholder="Ex: 5527999999999"
+            className="w-full bg-surface-container border border-outline-variant/40 rounded-xl px-3 py-2.5 font-headline text-sm text-on-surface focus:outline-none focus:border-primary/50 transition-colors placeholder:text-on-surface-variant/40"
+          />
+          <p className="font-headline text-[10px] text-on-surface-variant mt-1">
+            Se preenchido, substitui o WhatsApp global no botão desta quadra. Deixe em branco para usar o número padrão de Contato.
+          </p>
         </div>
 
         {/* Imagens */}
@@ -413,7 +434,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
           {isDirty && (
             <button
               type="button"
-              onClick={() => setDraft({ name: court.name, description: court.description, pricePerHour: court.pricePerHour, maxPlayers: Math.min(Math.max(court.maxPlayers, 1), 12), showCapacity: court.showCapacity, images: initialImages })}
+              onClick={() => setDraft({ name: court.name, description: court.description, pricePerHour: court.pricePerHour, maxPlayers: Math.min(Math.max(court.maxPlayers, 1), 12), showCapacity: court.showCapacity, courtWhatsapp: court.courtWhatsapp ?? '', images: initialImages })}
               className="p-2.5 bg-surface-container hover:bg-outline-variant/30 rounded-xl transition-all"
               title="Descartar alterações"
             >

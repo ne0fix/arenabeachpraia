@@ -51,6 +51,7 @@ export async function POST(req: Request) {
     amenities: [],
     isActive: true,
     showCapacity: true,
+    courtWhatsapp: '',
     openTime: result.data.morningOpen,
     closeTime: result.data.afternoonClose,
   })
