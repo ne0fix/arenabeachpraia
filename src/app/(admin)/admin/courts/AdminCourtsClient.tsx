@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { MapPin, Users, Clock, X, Plus, Loader2 } from 'lucide-react'
+import { Users, Clock, X, Plus, Loader2 } from 'lucide-react'
 import { formatCurrency } from '@/core/utils/formatCurrency'
 import { CourtImageCarousel } from '@/views/components/business/CourtImageCarousel'
 import { CourtScheduleTabs } from '@/views/components/admin/CourtScheduleTabs'
@@ -131,10 +131,6 @@ export function AdminCourtsClient({ initialCourts }: { initialCourts: Court[] })
                 </div>
 
                 <div className="space-y-1.5 mb-5">
-                  <div className="flex items-center gap-2 text-on-surface-variant">
-                    <MapPin className="w-4 h-4 text-primary flex-shrink-0" />
-                    <span className="font-headline text-xs font-medium truncate">{court.location}</span>
-                  </div>
                   <div className="flex items-center gap-2 text-on-surface-variant">
                     <Users className="w-4 h-4 text-primary flex-shrink-0" />
                     <span className="font-headline text-xs font-medium">Até {court.maxPlayers} jogadores</span>

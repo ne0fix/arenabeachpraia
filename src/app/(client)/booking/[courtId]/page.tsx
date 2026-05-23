@@ -1,7 +1,7 @@
 'use client'
 
 import { use } from 'react'
-import { ArrowLeft, MapPin, Users, ShoppingCart, Clock, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Users, ShoppingCart, Clock, AlertCircle } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { motion, AnimatePresence } from 'motion/react'
@@ -44,18 +44,11 @@ export default function BookingPage({ params }: BookingPageProps) {
               name={vm.court.name}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-4 md:p-6">
-              <span className="inline-block px-2 py-0.5 bg-primary text-white text-[9px] uppercase font-bold rounded-full w-fit mb-1">
-                {vm.court.location}
-              </span>
               <h2 className="text-white font-headline text-xl md:text-2xl font-bold truncate">{vm.court.name}</h2>
             </div>
           </div>
 
           <div className="flex items-center gap-4 text-on-surface-variant flex-wrap">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <MapPin className="w-4 h-4 text-primary flex-shrink-0" />
-              <span className="font-headline text-[11px] font-bold truncate">{vm.court.location}</span>
-            </div>
             {vm.court.showCapacity && (
               <div className="flex items-center gap-1.5">
                 <Users className="w-4 h-4 text-primary" />
