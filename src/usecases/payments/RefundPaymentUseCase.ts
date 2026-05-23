@@ -53,12 +53,12 @@ export class RefundPaymentUseCase {
       refundReason: input.reason,
     })
 
-    // Após estorno: volta a PENDING para liberar o horário (CONFIRMED bloqueia; PENDING não bloqueia)
+    // Após estorno: cancela a reserva e libera o horário
     await this.bookingRepo.update(input.bookingId, {
-      status: 'PENDING',
-      cancelledAt: null,
-      cancelReason: null,
-      cancelledBy: null,
+      status: 'CANCELLED',
+      cancelledAt: new Date(),
+      cancelReason: 'REFUNDED',
+      cancelledBy: input.refundedBy,
     })
 
     await prisma.auditLog.create({

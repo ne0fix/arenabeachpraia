@@ -157,6 +157,19 @@ export async function POST(req: Request) {
           where: { id: payment.id },
           data: { status: newStatus as any, gatewayStatus: mpStatus },
         })
+        // Cancela a reserva quando PIX expira ou é cancelado sem pagamento
+        if (['expired', 'cancelled'].includes(mpStatus) && payment.booking.status === 'PENDING') {
+          await prisma.booking.update({
+            where: { id: payment.booking.id },
+            data: {
+              status: 'CANCELLED',
+              cancelReason: mpStatus === 'expired' ? 'PIX_EXPIRED' : 'PAYMENT_CANCELLED',
+              cancelledAt: new Date(),
+              cancelledBy: 'system',
+            },
+          })
+          console.log('Webhook: reserva cancelada por', mpStatus, '→ bookingId:', payment.booking.id)
+        }
         console.log('Webhook: pagamento', mpStatus, '→ status DB:', newStatus)
       } else {
         console.log('Webhook: status MP ignorado:', mpStatus)
