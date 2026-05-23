@@ -79,8 +79,8 @@ function BookingDetailModal({ booking, onClose, onCancel }: {
       >
         {/* Imagem do court */}
         <div className="relative h-36 flex-shrink-0">
-          {booking.court?.imageUrl ? (
-            <Image src={booking.court.imageUrl} alt={booking.court?.name ?? ''} fill className="object-cover" />
+          {(booking.court?.images?.[0] || booking.court?.imageUrl) ? (
+            <Image src={booking.court.images?.[0] || booking.court.imageUrl!} alt={booking.court?.name ?? ''} fill className="object-cover" />
           ) : (
             <div className="w-full h-full bg-primary/10 flex items-center justify-center">
               <span className="font-headline text-primary text-5xl font-black">{booking.court?.name?.[0]}</span>

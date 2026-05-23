@@ -26,6 +26,11 @@ export async function PUT(
     if (key in body) data[key] = body[key]
   }
 
+  // Mantém imageUrl em sincronia com a primeira imagem do array
+  if (Array.isArray(body.images)) {
+    data.imageUrl = body.images[0] ?? null
+  }
+
   const repo = new PrismaCourtRepository()
   const updated = await repo.update(id, data as any)
 
