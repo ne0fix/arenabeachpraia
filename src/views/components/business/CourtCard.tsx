@@ -41,7 +41,7 @@ export function CourtCard({ court }: CourtCardProps) {
       </div>
 
       <div className="p-4 md:p-6 flex flex-col flex-grow">
-        <div className="flex justify-between items-start mb-3 md:mb-4">
+        <div className="flex justify-between items-center mb-3 md:mb-4">
           <div className="space-y-0.5 md:space-y-1">
             <h3 className="font-headline text-lg md:text-xl text-on-surface font-bold leading-tight">{court.name}</h3>
           </div>
