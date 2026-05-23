@@ -24,7 +24,7 @@ function toEntity(b: any): BookingWithDetails {
 }
 
 const withDetails = {
-  court: { select: { id: true, name: true, imageUrl: true, location: true } },
+  court: { select: { id: true, name: true, imageUrl: true, images: true, location: true } },
   user: { select: { id: true, name: true, email: true, phone: true } },
   payment: {
     select: {

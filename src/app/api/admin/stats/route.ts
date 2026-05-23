@@ -28,7 +28,7 @@ export async function GET(req: Request) {
     endDate = endOfMonth(baseDate)
   }
 
-  const [bookings, payments, courts] = await Promise.all([
+  const [bookings, payments, courts, recentBookings] = await Promise.all([
     prisma.booking.findMany({
       where: { date: { gte: startDate, lte: endDate } },
       include: { payment: true, court: { select: { id: true, name: true } } },
@@ -40,6 +40,15 @@ export async function GET(req: Request) {
       },
     }),
     prisma.court.findMany({ where: { isActive: true } }),
+    prisma.booking.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      include: {
+        court: { select: { id: true, name: true } },
+        user: { select: { name: true } },
+        payment: { select: { status: true, amount: true } },
+      },
+    }),
   ])
 
   const totalBookings = bookings.length
@@ -89,10 +98,6 @@ export async function GET(req: Request) {
     if (dayMap[d] !== undefined) dayMap[d]++
   })
   const bookingsByDay = Object.entries(dayMap).map(([day, count]) => ({ day, count }))
-
-  const recentBookings = bookings
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 10)
 
   return NextResponse.json({
     totalBookings,

@@ -29,6 +29,8 @@ export class PaymentError extends AppError {
       PAYMENT_NOT_FOUND: 'Pagamento não encontrado',
       ALREADY_REFUNDED: 'Pagamento já estornado',
       NOT_APPROVED: 'Pagamento não aprovado. Não é possível estornar.',
+      GATEWAY_ID_MISSING: 'ID do pagamento no gateway não encontrado',
+      REFUND_GATEWAY_ERROR: detail ?? 'Erro ao processar estorno no MercadoPago. Tente novamente.',
       GATEWAY_ERROR: detail ?? 'Erro no gateway de pagamento',
     }
     super(code, messages[code] ?? code)

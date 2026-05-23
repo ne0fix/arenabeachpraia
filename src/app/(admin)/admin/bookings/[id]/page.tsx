@@ -3,7 +3,7 @@
 import { use, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Calendar, Clock, MapPin, User, CreditCard, XCircle, RotateCcw } from 'lucide-react'
+import { ArrowLeft, Calendar, Clock, MapPin, User, CreditCard, XCircle, RotateCcw, ReceiptText } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Button } from '@/views/components/ui/Button'
@@ -67,28 +67,6 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
             #{booking.accessCode}
           </p>
         </div>
-        <div className="ml-auto flex gap-2">
-          {['CONFIRMED', 'PENDING'].includes(booking.status) && (
-            <Button
-              variant="outline"
-              size="sm"
-              leftIcon={<XCircle className="w-4 h-4" />}
-              onClick={() => setShowCancel(true)}
-            >
-              Cancelar
-            </Button>
-          )}
-          {booking.status === 'CANCELLED' && booking.payment?.status === 'APPROVED' && (
-            <Button
-              variant="secondary"
-              size="sm"
-              leftIcon={<RotateCcw className="w-4 h-4" />}
-              onClick={() => setShowRefund(true)}
-            >
-              Estornar
-            </Button>
-          )}
-        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -120,9 +98,30 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
             <p className="font-headline text-[10px] text-on-surface-variant uppercase font-bold tracking-wider mb-1">
               Valor Total
             </p>
-            <p className="font-headline text-2xl text-primary font-black">
+            <p className="font-headline text-2xl text-primary font-black mb-4">
               {formatCurrency(booking.totalValue)}
             </p>
+
+            {['CONFIRMED', 'PENDING'].includes(booking.status) && (
+              <div className="grid grid-cols-2 gap-2">
+                {booking.payment?.status === 'APPROVED' && (
+                  <button
+                    onClick={() => setShowRefund(true)}
+                    className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 font-headline text-xs font-bold uppercase tracking-wider hover:bg-amber-100 transition-colors"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Estorno
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowCancel(true)}
+                  className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-50 border border-red-200 text-red-600 font-headline text-xs font-bold uppercase tracking-wider hover:bg-red-100 transition-colors ${booking.payment?.status !== 'APPROVED' ? 'col-span-2' : ''}`}
+                >
+                  <XCircle className="w-3.5 h-3.5" />
+                  Cancelar
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

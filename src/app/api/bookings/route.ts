@@ -12,6 +12,7 @@ const createSchema = z.object({
   courtId: z.string().min(1),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   startTime: z.string().regex(/^\d{2}:\d{2}$/),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   paymentMethod: z.enum(['PIX', 'CREDIT_CARD', 'DEBIT_CARD']),
   paymentToken: z.string().optional(),
   cardBrand: z.string().optional(),

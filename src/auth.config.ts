@@ -13,18 +13,29 @@ export const authConfig: NextAuthConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user
+      const role = (auth?.user as any)?.role
+      const isAdmin = role === 'MANAGER' || role === 'ADMIN'
+
+      const isAdminLoginPage = nextUrl.pathname === '/admin/login'
       const isAdminRoute =
-        nextUrl.pathname.startsWith('/admin') ||
+        (nextUrl.pathname.startsWith('/admin') && !isAdminLoginPage) ||
         nextUrl.pathname.startsWith('/api/admin')
       const protectedClient = ['/bookings', '/profile', '/payment', '/booking-success', '/booking-error']
       const isProtectedClient = protectedClient.some((p) => nextUrl.pathname.startsWith(p))
 
-      if (isAdminRoute) {
-        if (!isLoggedIn) return Response.redirect(new URL('/login', nextUrl))
-        const role = (auth?.user as any)?.role
-        if (role !== 'MANAGER' && role !== 'ADMIN') return Response.redirect(new URL('/', nextUrl))
+      // Página de login admin: redireciona quem já está autenticado como admin
+      if (isAdminLoginPage) {
+        if (isLoggedIn && isAdmin) return Response.redirect(new URL('/admin/dashboard', nextUrl))
+        return true
       }
 
+      // Rotas admin: exige autenticação e role admin/manager
+      if (isAdminRoute) {
+        if (!isLoggedIn) return Response.redirect(new URL('/admin/login', nextUrl))
+        if (!isAdmin) return Response.redirect(new URL('/', nextUrl))
+      }
+
+      // Rotas cliente protegidas
       if (isProtectedClient && !isLoggedIn) {
         return Response.redirect(new URL('/login', nextUrl))
       }

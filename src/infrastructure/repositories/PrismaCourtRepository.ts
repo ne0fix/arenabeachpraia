@@ -54,6 +54,19 @@ export class PrismaCourtRepository implements ICourtRepository {
       return { date, slots: [] }
     }
 
+    // Horário atual no Brasil (UTC-3) para filtrar slots já passados
+    const now = new Date()
+    const brazilDate = new Intl.DateTimeFormat('sv-SE', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(now) // "YYYY-MM-DD"
+    const brazilTime = new Intl.DateTimeFormat('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      hour: '2-digit', minute: '2-digit',
+      hour12: false,
+    }).format(now).substring(0, 5) // "HH:MM"
+    const isToday = date === brazilDate
+
     const slots: TimeSlot[] = []
 
     const generatePeriodSlots = (periodOpen: string, periodClose: string) => {
@@ -63,6 +76,11 @@ export class PrismaCourtRepository implements ICourtRepository {
       while (current < end) {
         const time = format(current, 'HH:mm')
         const slotEnd = addMinutes(current, court.slotDuration)
+        // Se for hoje, ocultar slots cujo horário de início já passou
+        if (isToday && time <= brazilTime) {
+          current = slotEnd
+          continue
+        }
         const isBooked = bookings.some(
           (b) => b.startTime === time || (b.startTime < time && b.endTime > time)
         )

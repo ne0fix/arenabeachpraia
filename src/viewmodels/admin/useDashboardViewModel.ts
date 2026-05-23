@@ -32,7 +32,10 @@ export function useDashboardViewModel() {
   const { data: stats, isLoading } = useQuery<AdminStats>({
     queryKey: ['admin-stats', period, dateStr],
     queryFn: () =>
-      fetch(`/api/admin/stats?period=${period}&date=${dateStr}`).then((r) => r.json()),
+      fetch(`/api/admin/stats?period=${period}&date=${dateStr}`).then((r) => {
+        if (!r.ok) throw new Error('stats_error')
+        return r.json()
+      }),
     refetchInterval: 30_000,
   })
 
@@ -47,7 +50,7 @@ export function useDashboardViewModel() {
       totalRevenue: formatCurrency(stats.totalRevenue),
       refundedAmount: formatCurrency(stats.refundedAmount),
       netRevenue: formatCurrency(stats.netRevenue),
-      occupancyRate: stats.occupancyRate.toFixed(0) + '%',
+      occupancyRate: (stats.occupancyRate ?? 0).toFixed(0) + '%',
     }
   }, [stats])
 

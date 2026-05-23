@@ -47,34 +47,40 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {vm.kpis && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatsCard
-            title="Agendamentos"
-            value={vm.kpis.totalBookings}
-            icon={<CalendarDays className="w-5 h-5" />}
-            color="primary"
-          />
-          <StatsCard
-            title="Receita Líquida"
-            value={vm.kpis.netRevenue}
-            icon={<TrendingUp className="w-5 h-5" />}
-            color="success"
-          />
-          <StatsCard
-            title="Cancelamentos"
-            value={`${vm.kpis.cancelledBookings} (${vm.kpis.cancellationRate})`}
-            icon={<XCircle className="w-5 h-5" />}
-            color="warning"
-          />
-          <StatsCard
-            title="Taxa de Ocupação"
-            value={vm.kpis.occupancyRate}
-            icon={<BarChart3 className="w-5 h-5" />}
-            color="primary"
-          />
-        </div>
-      )}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {vm.isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-28 bg-surface-container animate-pulse rounded-2xl border border-outline-variant/30" />
+          ))
+        ) : (
+          <>
+            <StatsCard
+              title="Agendamentos"
+              value={vm.kpis?.totalBookings ?? 0}
+              icon={<CalendarDays className="w-5 h-5" />}
+              color="primary"
+            />
+            <StatsCard
+              title="Receita Líquida"
+              value={vm.kpis?.netRevenue ?? 'R$ 0,00'}
+              icon={<TrendingUp className="w-5 h-5" />}
+              color="success"
+            />
+            <StatsCard
+              title="Cancelamentos"
+              value={vm.kpis ? `${vm.kpis.cancelledBookings} (${vm.kpis.cancellationRate})` : '0 (0%)'}
+              icon={<XCircle className="w-5 h-5" />}
+              color="warning"
+            />
+            <StatsCard
+              title="Taxa de Ocupação"
+              value={vm.kpis?.occupancyRate ?? '0%'}
+              icon={<BarChart3 className="w-5 h-5" />}
+              color="primary"
+            />
+          </>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 p-6 sun-shadow">
@@ -116,7 +122,7 @@ export default function DashboardPage() {
 
       <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 sun-shadow overflow-hidden">
         <div className="px-6 py-4 border-b border-outline-variant/30">
-          <h3 className="font-headline text-lg text-on-surface font-bold">Agendamentos Recentes</h3>
+          <h3 className="font-headline text-lg text-on-surface font-bold">Últimos Agendamentos</h3>
         </div>
         <div className="divide-y divide-outline-variant/20">
           {vm.isLoading ? (

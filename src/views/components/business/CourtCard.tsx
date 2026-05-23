@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { MapPin, Users, ArrowRight, MessageCircle } from 'lucide-react'
+import { Users, ArrowRight, MessageCircle } from 'lucide-react'
 import { Button } from '@/views/components/ui/Button'
 import { formatCurrency } from '@/core/utils/formatCurrency'
 import { CourtImageCarousel } from '@/views/components/business/CourtImageCarousel'
@@ -44,10 +44,6 @@ export function CourtCard({ court }: CourtCardProps) {
         <div className="flex justify-between items-start mb-3 md:mb-4">
           <div className="space-y-0.5 md:space-y-1">
             <h3 className="font-headline text-lg md:text-xl text-on-surface font-bold leading-tight">{court.name}</h3>
-            <div className="flex items-center gap-1.5 text-on-surface-variant">
-              <MapPin className="w-3.5 h-3.5 text-primary" />
-              <span className="font-headline text-[10px] md:text-xs font-semibold">{court.location}</span>
-            </div>
           </div>
           {!isExclusive && (
             <div className="text-right">

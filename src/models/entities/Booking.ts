@@ -24,6 +24,7 @@ export interface BookingWithDetails extends Booking {
     id: string
     name: string
     imageUrl: string | null
+    images: string[]
     location: string
   }
   user: {

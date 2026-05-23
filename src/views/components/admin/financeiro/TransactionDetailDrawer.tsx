@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/core/utils/formatCurrency";
 import { Badge } from "@/views/components/ui/Badge";
-import { PaymentStatus, PaymentMethod } from "@prisma/client";
+import { PaymentStatus, PaymentMethod } from "@/types/payment-enums";
 import { cn } from "@/core/utils/helpers";
 import Link from "next/link";
 

@@ -1,15 +1,15 @@
-import { Transaction, PaginationInfo, TransactionFilters } from "@/types/financeiro";
+import { Transaction, TransactionFilters } from "@/types/financeiro";
+import { PaymentStatus, PaymentMethod } from "@/types/payment-enums";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/core/utils/formatCurrency";
 import { Badge } from "@/views/components/ui/Badge";
-import { PaymentStatus, PaymentMethod } from "@prisma/client";
 import { Zap, CreditCard, ChevronLeft, ChevronRight, Eye, RefreshCcw } from "lucide-react";
 import { cn } from "@/core/utils/helpers";
 
 interface TransactionTableProps {
   transactions: Transaction[];
-  pagination: PaginationInfo;
+  pagination: { page: number; pageSize: number; total: number; totalPages: number };
   loading: boolean;
   onPageChange: (page: number) => void;
   onFilterChange: (filters: Partial<TransactionFilters>) => void;

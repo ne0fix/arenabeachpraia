@@ -1,4 +1,4 @@
-import { MessageCircle, Phone, Mail, MapPin, Clock } from 'lucide-react'
+import { MessageCircle, MapPin, Clock } from 'lucide-react'
 import { prisma } from '@/infrastructure/database/prisma'
 
 export const revalidate = 0
@@ -20,7 +20,6 @@ export default async function ContactPage() {
 
   const waNumber = s.whatsappNumber.replace(/\D/g, '')
   const waLink = `https://wa.me/${waNumber}?text=${encodeURIComponent(s.msgContact)}`
-  const phoneRaw = s.phone.replace(/\D/g, '')
 
   const hasHours = s.hoursWeekdays || s.hoursSaturday || s.hoursSunday
 
@@ -58,41 +57,6 @@ export default async function ContactPage() {
           </div>
         </a>
 
-        {/* Telefone */}
-        {s.phone && (
-          <a
-            href={`tel:+${phoneRaw}`}
-            className="flex items-center gap-3 p-4 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl sun-shadow transition-all hover:border-primary/40 active:scale-[0.98]"
-          >
-            <div className="p-2 bg-primary/10 rounded-xl flex-shrink-0">
-              <Phone className="w-5 h-5 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <p className="font-headline text-base text-on-surface font-bold leading-tight">Ligação</p>
-              <p className="font-headline text-[11px] text-on-surface-variant uppercase tracking-wider truncate">
-                {s.phone}
-              </p>
-            </div>
-          </a>
-        )}
-
-        {/* E-mail */}
-        {s.email && (
-          <a
-            href={`mailto:${s.email}`}
-            className="flex items-center gap-3 p-4 bg-surface-container-lowest border border-outline-variant/30 rounded-2xl sun-shadow transition-all hover:border-primary/40 active:scale-[0.98]"
-          >
-            <div className="p-2 bg-primary/10 rounded-xl flex-shrink-0">
-              <Mail className="w-5 h-5 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <p className="font-headline text-base text-on-surface font-bold leading-tight">E-mail</p>
-              <p className="font-headline text-[11px] text-on-surface-variant truncate">
-                {s.email}
-              </p>
-            </div>
-          </a>
-        )}
       </div>
 
       {/* Informações gerais */}

@@ -4,18 +4,22 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 export function useRefundViewModel(bookingId: string, maxAmount: number, onSuccess?: () => void) {
-  const [reason, setReason] = useState('')
+  const [reason, setReason] = useState('Estorno solicitado pelo administrador')
   const [amount, setAmount] = useState(maxAmount)
   const [isPartial, setIsPartial] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
   const qc = useQueryClient()
 
-  const { mutateAsync: refund, isPending } = useMutation({
+  const { mutate: refund, isPending } = useMutation({
     mutationFn: async () => {
-      if (!reason.trim()) throw new Error('Informe o motivo do estorno')
       const res = await fetch('/api/payments/refund', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId, reason, amount: isPartial ? amount : undefined }),
+        body: JSON.stringify({
+          bookingId,
+          reason: reason.trim() || 'Estorno solicitado pelo administrador',
+          amount: isPartial ? amount : undefined,
+        }),
       })
       if (!res.ok) {
         const err = await res.json()
@@ -24,12 +28,24 @@ export function useRefundViewModel(bookingId: string, maxAmount: number, onSucce
       return res.json()
     },
     onSuccess: () => {
+      setErrorMessage('')
       qc.invalidateQueries({ queryKey: ['admin-bookings'] })
       qc.invalidateQueries({ queryKey: ['admin-stats'] })
       qc.invalidateQueries({ queryKey: ['admin-payments'] })
+      qc.invalidateQueries({ queryKey: ['booking', bookingId] })
       onSuccess?.()
+    },
+    onError: (err: Error) => {
+      setErrorMessage(err.message || 'Erro ao processar estorno')
     },
   })
 
-  return { reason, setReason, amount, setAmount, isPartial, setIsPartial, refund, isPending }
+  return {
+    reason, setReason,
+    amount, setAmount,
+    isPartial, setIsPartial,
+    errorMessage,
+    refund,
+    isPending,
+  }
 }

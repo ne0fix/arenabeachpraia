@@ -37,9 +37,9 @@ export function BookingCard({ booking, onCancel, onClick }: BookingCardProps) {
       )}
     >
       <div className="relative w-24 h-full md:w-28 flex-shrink-0">
-        {booking.court.imageUrl ? (
+        {(booking.court.images?.[0] || booking.court.imageUrl) ? (
           <Image
-            src={booking.court.imageUrl}
+            src={booking.court.images?.[0] || booking.court.imageUrl!}
             alt={booking.court.name}
             fill
             className="object-cover"
