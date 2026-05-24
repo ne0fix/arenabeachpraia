@@ -23,7 +23,7 @@ export function CancellationModal({ booking, open, onClose }: CancellationModalP
         <div className="bg-surface-container rounded-xl p-4">
           <p className="font-headline text-sm text-on-surface font-bold">{booking.court.name}</p>
           <p className="font-headline text-xs text-on-surface-variant">
-            {new Date(booking.date).toLocaleDateString('pt-BR')} às {booking.startTime}
+            {new Date(String(booking.date).slice(0, 10) + 'T12:00:00').toLocaleDateString('pt-BR')} às {booking.startTime}
           </p>
           <p className="font-headline text-sm text-primary font-bold mt-1">
             {formatCurrency(booking.totalValue)}

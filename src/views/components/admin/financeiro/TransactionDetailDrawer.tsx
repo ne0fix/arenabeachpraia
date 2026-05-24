@@ -119,7 +119,7 @@ export function TransactionDetailDrawer({
               <DetailItem label="Quadra" value={transaction.booking.court.name} />
               <DetailItem 
                 label="Horário" 
-                value={`${format(new Date(transaction.booking.date), "dd/MM/yyyy", { locale: ptBR })} • ${transaction.booking.startTime} às ${transaction.booking.endTime}`} 
+                value={`${format(new Date(String(transaction.booking.date).slice(0, 10) + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR })} • ${transaction.booking.startTime} às ${transaction.booking.endTime}`} 
               />
             </div>
           </section>

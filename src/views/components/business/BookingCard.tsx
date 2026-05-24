@@ -26,7 +26,7 @@ const statusConfig: Record<BookingStatus, { icon: any; label: string; color: str
 export function BookingCard({ booking, onCancel, onClick }: BookingCardProps) {
   const status = statusConfig[booking.status]
   const StatusIcon = status.icon
-  const bookingDate = new Date(booking.date)
+  const bookingDate = new Date(String(booking.date).slice(0, 10) + 'T12:00:00')
 
   return (
     <div

@@ -81,7 +81,7 @@ export function BookingTable({ bookings, isLoading }: BookingTableProps) {
                   </td>
                   <td className="px-4 py-3 font-headline text-sm text-on-surface">{b.court.name}</td>
                   <td className="px-4 py-3 font-headline text-sm text-on-surface whitespace-nowrap">
-                    {format(new Date(b.date), 'dd/MM/yy', { locale: ptBR })}
+                    {format(new Date(String(b.date).slice(0, 10) + 'T12:00:00'), 'dd/MM/yy', { locale: ptBR })}
                   </td>
                   <td className="px-4 py-3 font-headline text-sm text-on-surface">{b.startTime}</td>
                   <td className="px-4 py-3 font-headline text-sm text-primary font-bold whitespace-nowrap">

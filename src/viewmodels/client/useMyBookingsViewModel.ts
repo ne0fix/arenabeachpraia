@@ -18,7 +18,7 @@ export function useMyBookingsViewModel() {
   const allBookings = data?.bookings ?? []
 
   const filtered = allBookings.filter((b) => {
-    const d = new Date(b.date)
+    const d = new Date(String(b.date).slice(0, 10) + 'T12:00:00')
     const now = new Date()
     if (filter === 'upcoming') return d >= now && b.status !== 'CANCELLED'
     if (filter === 'past') return d < now && b.status !== 'CANCELLED'

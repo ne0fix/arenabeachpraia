@@ -78,7 +78,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
 
           {[
             { icon: MapPin, label: 'Quadra', value: booking.court.name },
-            { icon: Calendar, label: 'Data', value: format(new Date(booking.date), "EEEE, dd 'de' MMMM yyyy", { locale: ptBR }) },
+            { icon: Calendar, label: 'Data', value: format(new Date(String(booking.date).slice(0, 10) + 'T12:00:00'), "EEEE, dd 'de' MMMM yyyy", { locale: ptBR }) },
             { icon: Clock, label: 'Horário', value: `${booking.startTime} – ${booking.endTime}` },
           ].map((row) => (
             <div key={row.label} className="flex items-start gap-3">

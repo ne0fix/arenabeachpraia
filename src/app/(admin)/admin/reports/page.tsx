@@ -122,7 +122,7 @@ export default function AdminReportsPage() {
                 {vm.reportData.bookings.slice(0, 50).map((b: any) => (
                   <tr key={b.id} className="hover:bg-surface-container/50 transition-colors">
                     <td className="px-4 py-3 font-headline text-xs text-on-surface-variant whitespace-nowrap">
-                      {new Date(b.date).toLocaleDateString('pt-BR')}
+                      {new Date(String(b.date).slice(0, 10) + 'T12:00:00').toLocaleDateString('pt-BR')}
                     </td>
                     <td className="px-4 py-3 font-headline text-sm text-on-surface">{b.court?.name}</td>
                     <td className="px-4 py-3 font-headline text-sm text-on-surface">{b.user?.name}</td>
