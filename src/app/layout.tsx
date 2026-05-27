@@ -20,6 +20,29 @@ const beVietnamPro = Be_Vietnam_Pro({
 export const metadata: Metadata = {
   title: 'Arena Beach Serra',
   description: 'Agende sua quadra de beach sports com facilidade.',
+  metadataBase: new URL('https://www.arenabeachserra.com.br'),
+  openGraph: {
+    title: 'Arena Beach Serra',
+    description: 'Agende sua quadra de beach sports com facilidade.',
+    url: 'https://www.arenabeachserra.com.br',
+    siteName: 'Arena Beach Serra',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Arena Beach Serra',
+      },
+    ],
+    locale: 'pt_BR',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Arena Beach Serra',
+    description: 'Agende sua quadra de beach sports com facilidade.',
+    images: ['/og-image.png'],
+  },
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
