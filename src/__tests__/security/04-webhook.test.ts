@@ -74,7 +74,7 @@ describe('04 – Webhook: validação de assinatura HMAC', () => {
     } as any)
   })
 
-  it('[BUG DOCUMENTADO] HMAC inválido deveria retornar 401 mas retorna 200', async () => {
+  it('HMAC inválido retorna 401 (rejeita processamento)', async () => {
     const { POST } = await import('@/app/api/payments/webhook/route')
     const res = await POST(
       makeWebhookRequest(
@@ -82,11 +82,16 @@ describe('04 – Webhook: validação de assinatura HMAC', () => {
         'ts=1234567890,v1=assinatura_completamente_invalida'
       )
     )
-    // BUG: atualmente retorna 200 mesmo com HMAC inválido
-    // O comportamento CORRETO seria retornar 401
-    // Este teste documenta o bug e serve como alerta de regressão
-    expect(res.status).toBe(200) // ATUAL (bug)
-    // expect(res.status).toBe(401) // ESPERADO após correção
+    expect(res.status).toBe(401)
+    // Nenhum pagamento deve ter sido processado
+    expect(mockPrisma.payment.findUnique).not.toHaveBeenCalled()
+  })
+
+  it('requisição sem x-signature quando secret está configurado → 401', async () => {
+    const { POST } = await import('@/app/api/payments/webhook/route')
+    const res = await POST(makeWebhookRequest({ type: 'payment', data: { id: '999' } }))
+    expect(res.status).toBe(401)
+    expect(mockPrisma.payment.findUnique).not.toHaveBeenCalled()
   })
 
   it('HMAC válido é aceito corretamente', async () => {

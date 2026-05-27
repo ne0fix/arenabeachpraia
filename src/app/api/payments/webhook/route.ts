@@ -32,22 +32,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true })
     }
 
-    if (webhookSecret && signature) {
+    if (webhookSecret) {
+      if (!signature) {
+        console.warn('Webhook: assinatura ausente (secret configurado)')
+        return NextResponse.json({ error: 'Assinatura ausente' }, { status: 401 })
+      }
       try {
         const [tsPart, v1Part] = signature.split(',')
         const ts = tsPart?.split('=')[1]
         const v1 = v1Part?.split('=')[1]
-        if (ts && v1) {
-          const manifest = `id:${resourceId};request-id:${requestId};ts:${ts};`
-          const hmac = crypto.createHmac('sha256', webhookSecret)
-          hmac.update(manifest)
-          const digest = hmac.digest('hex')
-          if (digest !== v1) {
-            console.warn('Webhook: assinatura inválida (continuando mesmo assim)')
-          }
+        if (!ts || !v1) {
+          console.warn('Webhook: formato de assinatura inválido')
+          return NextResponse.json({ error: 'Assinatura inválida' }, { status: 401 })
+        }
+        const manifest = `id:${resourceId};request-id:${requestId};ts:${ts};`
+        const hmac = crypto.createHmac('sha256', webhookSecret)
+        hmac.update(manifest)
+        const digest = hmac.digest('hex')
+        if (!crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(v1))) {
+          console.warn('Webhook: assinatura HMAC inválida')
+          return NextResponse.json({ error: 'Assinatura inválida' }, { status: 401 })
         }
       } catch (sigErr) {
         console.warn('Webhook: erro ao validar assinatura:', sigErr)
+        return NextResponse.json({ error: 'Erro ao validar assinatura' }, { status: 401 })
       }
     }
 
