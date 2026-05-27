@@ -1,10 +1,11 @@
 'use client'
 
-import { Suspense } from 'react'
+import { Suspense, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle, Calendar, Clock, Share2, Home, XCircle, AlertTriangle, Loader2, QrCode, Copy, Check } from 'lucide-react'
+import { CheckCircle, Calendar, Clock, Share2, Home, XCircle, AlertTriangle, Loader2, QrCode, Copy, Check, ShoppingCart } from 'lucide-react'
 import { useState } from 'react'
+import { useBookingCart } from '@/lib/useBookingCart'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { motion } from 'motion/react'
@@ -16,7 +17,9 @@ function SuccessContent() {
   const params = useSearchParams()
   const router = useRouter()
   const bookingId = params.get('bookingId')
+  const cartItemId = params.get('cartItemId')
   const [copied, setCopied] = useState(false)
+  const cart = useBookingCart()
 
   const copyPix = (code: string) => {
     navigator.clipboard.writeText(code)
@@ -36,6 +39,13 @@ function SuccessContent() {
     },
     refetchIntervalInBackground: false,
   })
+
+  // Remove este item do carrinho quando a reserva for confirmada
+  useEffect(() => {
+    if (booking?.status === 'CONFIRMED' && cartItemId) {
+      cart.removeItem(cartItemId)
+    }
+  }, [booking?.status, cartItemId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (isLoading || !booking) {
     return (
@@ -243,7 +253,23 @@ function SuccessContent() {
       )}
 
       <div className="w-full space-y-4">
-        <Button className="w-full h-14 text-lg" leftIcon={<Home className="w-6 h-6" />} onClick={() => router.push('/')}>
+        {/* Próximo item do carrinho */}
+        {cart.items.length > 0 && (
+          <Button
+            className="w-full h-14 text-lg"
+            leftIcon={<ShoppingCart className="w-6 h-6" />}
+            onClick={() => router.push('/cart')}
+          >
+            Pagar próximo item ({cart.items.length} restante{cart.items.length !== 1 ? 's' : ''})
+          </Button>
+        )}
+
+        <Button
+          variant={cart.items.length > 0 ? 'outline' : 'primary'}
+          className="w-full h-14 text-lg"
+          leftIcon={<Home className="w-6 h-6" />}
+          onClick={() => router.push('/')}
+        >
           Voltar ao Início
         </Button>
         <Button

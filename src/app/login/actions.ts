@@ -4,7 +4,11 @@ import { signIn } from '@/auth'
 import { AuthError } from 'next-auth'
 import { redirect } from 'next/navigation'
 
-export async function loginAction(email: string, password: string): Promise<string | null> {
+export async function loginAction(
+  email: string,
+  password: string,
+  callbackUrl?: string
+): Promise<string | null> {
   try {
     await signIn('credentials', { email, password, redirect: false })
   } catch (error) {
@@ -13,5 +17,7 @@ export async function loginAction(email: string, password: string): Promise<stri
     }
     throw error
   }
-  redirect('/auth/redirect')
+  // Permite apenas caminhos relativos (segurança contra open redirect)
+  const safe = callbackUrl?.startsWith('/') ? callbackUrl : '/auth/redirect'
+  redirect(safe)
 }

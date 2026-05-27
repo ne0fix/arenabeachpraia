@@ -2,13 +2,15 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { LogOut, User } from 'lucide-react'
+import { LogOut, User, ShoppingCart } from 'lucide-react'
 import { signOut, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { useBookingCart } from '@/lib/useBookingCart'
 
 export function Header() {
   const { data: session } = useSession()
   const router = useRouter()
+  const cart = useBookingCart()
 
   const handleLogout = async () => {
     await signOut({ redirect: false })
@@ -26,8 +28,18 @@ export function Header() {
       </Link>
       
       <div className="flex items-center gap-2 md:gap-4">
+        {/* Ícone de carrinho com badge */}
+        <Link href="/cart" className="relative p-2 md:p-2.5 hover:bg-surface-container rounded-full transition-colors text-primary">
+          <ShoppingCart className="w-6 h-6 md:w-7 md:h-7" />
+          {cart.totalCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
+              {cart.totalCount}
+            </span>
+          )}
+        </Link>
+
         {session ? (
-          <button 
+          <button
             onClick={handleLogout}
             className="p-2 md:p-2.5 hover:bg-red-50 rounded-full transition-colors text-red-600"
             title="Sair"

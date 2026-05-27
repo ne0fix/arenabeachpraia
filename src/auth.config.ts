@@ -35,9 +35,10 @@ export const authConfig: NextAuthConfig = {
         if (!isAdmin) return Response.redirect(new URL('/', nextUrl))
       }
 
-      // Rotas cliente protegidas
+      // Rotas cliente protegidas — preserva a URL original como callbackUrl
       if (isProtectedClient && !isLoggedIn) {
-        return Response.redirect(new URL('/login', nextUrl))
+        const callbackUrl = encodeURIComponent(nextUrl.pathname + nextUrl.search)
+        return Response.redirect(new URL(`/login?callbackUrl=${callbackUrl}`, nextUrl))
       }
 
       return true

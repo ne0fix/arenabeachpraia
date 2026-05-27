@@ -1,7 +1,7 @@
 'use client'
 
 import { use } from 'react'
-import { ArrowLeft, Users, ShoppingCart, Clock, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Users, ShoppingCart, Clock, AlertCircle, Check, ChevronRight } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { motion, AnimatePresence } from 'motion/react'
@@ -163,8 +163,9 @@ export default function BookingPage({ params }: BookingPageProps) {
           )}
         </section>
 
+        {/* Barra flutuante do carrinho — aparece quando há itens */}
         <AnimatePresence>
-          {vm.selectedSlots.length > 0 && (
+          {vm.cartCount > 0 && vm.selectedSlots.length === 0 && !vm.addedFeedback && (
             <motion.div
               initial={{ opacity: 0, y: 60 }}
               animate={{ opacity: 1, y: 0 }}
@@ -172,38 +173,92 @@ export default function BookingPage({ params }: BookingPageProps) {
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               className="fixed bottom-0 md:bottom-6 left-0 right-0 p-4 md:px-6 z-[60] bg-surface/95 backdrop-blur-lg border-t md:border-none border-outline-variant/30"
             >
-              <div className="max-w-4xl mx-auto flex flex-col md:flex-row gap-3 md:gap-4">
-                <div className="bg-surface-container-lowest border border-primary/10 p-3 md:p-4 rounded-2xl shadow-lg flex-1">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="p-2 bg-secondary-container rounded-lg text-primary flex-shrink-0">
-                        <ShoppingCart className="w-5 h-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider">
-                          {format(vm.selectedDate, "dd 'de' MMM", { locale: ptBR })}
-                        </p>
-                        <div className="flex items-center gap-1.5">
-                          <Clock className="w-3 h-3 text-primary flex-shrink-0" />
-                          <p className="font-headline text-sm font-bold text-on-surface truncate">
-                            {vm.selectedStartTime} — {vm.selectedEndTime}
+              <div className="max-w-4xl mx-auto">
+                <button
+                  onClick={vm.goToCart}
+                  className="w-full bg-primary text-white rounded-2xl p-4 flex items-center justify-between shadow-lg active:scale-[0.98] transition-transform"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white/20 rounded-lg p-1.5">
+                      <ShoppingCart className="w-5 h-5" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-headline text-[10px] font-bold uppercase tracking-wider opacity-80">
+                        {vm.cartCount} {vm.cartCount === 1 ? 'item' : 'itens'} no carrinho
+                      </p>
+                      <p className="font-headline text-base font-bold">{formatCurrency(vm.cartTotal)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 font-headline text-sm font-bold">
+                    Ir para o Carrinho <ChevronRight className="w-4 h-4" />
+                  </div>
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Painel de seleção atual */}
+        <AnimatePresence>
+          {(vm.selectedSlots.length > 0 || vm.addedFeedback) && (
+            <motion.div
+              initial={{ opacity: 0, y: 60 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 60 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="fixed bottom-0 md:bottom-6 left-0 right-0 p-4 md:px-6 z-[60] bg-surface/95 backdrop-blur-lg border-t md:border-none border-outline-variant/30"
+            >
+              <div className="max-w-4xl mx-auto flex flex-col gap-2">
+                {/* Aviso de item adicionado */}
+                {vm.addedFeedback && (
+                  <div className="flex items-center gap-2 bg-green-500 text-white rounded-xl px-4 py-2.5">
+                    <Check className="w-4 h-4 flex-shrink-0" />
+                    <span className="font-headline text-xs font-bold">
+                      Adicionado ao carrinho! Selecione outro horário ou{' '}
+                      <button onClick={vm.goToCart} className="underline">
+                        vá para o carrinho
+                      </button>
+                      .
+                    </span>
+                  </div>
+                )}
+
+                {/* Seleção atual (só mostra quando slots estão selecionados) */}
+                {vm.selectedSlots.length > 0 && (
+                  <div className="flex flex-col md:flex-row gap-3 md:gap-4">
+                    <div className="bg-surface-container-lowest border border-primary/10 p-3 md:p-4 rounded-2xl shadow-lg flex-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="p-2 bg-secondary-container rounded-lg text-primary flex-shrink-0">
+                            <ShoppingCart className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider">
+                              {format(vm.selectedDate, "dd 'de' MMM", { locale: ptBR })}
+                            </p>
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="w-3 h-3 text-primary flex-shrink-0" />
+                              <p className="font-headline text-sm font-bold text-on-surface truncate">
+                                {vm.selectedStartTime} — {vm.selectedEndTime}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider">
+                            {vm.selectedDurationHours}h · {vm.selectedSlots.length} {vm.selectedSlots.length === 1 ? 'horário' : 'horários'}
+                          </p>
+                          <p className="font-headline text-lg md:text-xl text-primary font-bold">
+                            {formatCurrency(vm.selectedTotal)}
                           </p>
                         </div>
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider">
-                        {vm.selectedDurationHours}h · {vm.selectedSlots.length} {vm.selectedSlots.length === 1 ? 'horário' : 'horários'}
-                      </p>
-                      <p className="font-headline text-lg md:text-xl text-primary font-bold">
-                        {formatCurrency(vm.selectedTotal)}
-                      </p>
-                    </div>
+                    <Button className="w-full md:w-auto md:px-12 h-12 md:h-14 text-sm md:text-lg" onClick={vm.addToCart}>
+                      Adicionar ao Carrinho
+                    </Button>
                   </div>
-                </div>
-                <Button className="w-full md:w-auto md:px-12 h-12 md:h-14 text-sm md:text-lg" onClick={vm.proceed}>
-                  Continuar
-                </Button>
+                )}
               </div>
             </motion.div>
           )}

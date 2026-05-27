@@ -1,14 +1,18 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, Suspense } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Button } from '@/views/components/ui/Button'
 import { User, Lock, EyeOff, Eye, ArrowRight, HelpCircle } from 'lucide-react'
 import { motion } from 'motion/react'
+import { useSearchParams } from 'next/navigation'
 import { loginAction } from './actions'
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams()
+  const callbackUrl = searchParams.get('callbackUrl') ?? undefined
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPwd, setShowPwd] = useState(false)
@@ -19,7 +23,7 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     startTransition(async () => {
-      const err = await loginAction(email, password)
+      const err = await loginAction(email, password, callbackUrl)
       if (err) setError(err)
     })
   }
@@ -107,5 +111,17 @@ export default function LoginPage() {
         </span>
       </button>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-dvh flex items-center justify-center">
+        <span className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   )
 }

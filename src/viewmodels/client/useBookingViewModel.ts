@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { addDays, format } from 'date-fns'
 import type { Court, DayAvailability, TimeSlot } from '@/models/entities/Court'
+import { useBookingCart } from '@/lib/useBookingCart'
 
 interface SlotGroup {
   label: string
@@ -24,9 +25,11 @@ function toMin(t: string) {
 
 export function useBookingViewModel(courtId: string) {
   const router = useRouter()
+  const cart = useBookingCart()
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [selectedSlots, setSelectedSlots] = useState<string[]>([])
   const [slotError, setSlotError] = useState('')
+  const [addedFeedback, setAddedFeedback] = useState(false)
 
   const days = Array.from({ length: 30 }, (_, i) => addDays(new Date(), i))
 
@@ -122,12 +125,24 @@ export function useBookingViewModel(courtId: string) {
     }
   }
 
-  const proceed = () => {
-    if (!selectedStartTime || !selectedEndTime) return
-    router.push(
-      `/payment?courtId=${courtId}&date=${dateStr}&startTime=${selectedStartTime}&endTime=${selectedEndTime}`
-    )
+  const addToCart = () => {
+    if (!selectedStartTime || !selectedEndTime || !court) return
+    cart.addItem({
+      courtId,
+      courtName: court.name,
+      date: dateStr,
+      startTime: selectedStartTime,
+      endTime: selectedEndTime,
+      totalAmount: selectedTotal,
+      durationHours: selectedDurationHours,
+    })
+    setSelectedSlots([])
+    setSlotError('')
+    setAddedFeedback(true)
+    setTimeout(() => setAddedFeedback(false), 2500)
   }
+
+  const goToCart = () => router.push('/cart')
 
   return {
     court,
@@ -145,7 +160,11 @@ export function useBookingViewModel(courtId: string) {
     loadingSlots,
     handleDateChange,
     handleSlotSelect,
-    proceed,
+    addToCart,
+    goToCart,
+    addedFeedback,
+    cartCount: cart.totalCount,
+    cartTotal: cart.totalAmount,
     goBack: () => router.back(),
   }
 }
