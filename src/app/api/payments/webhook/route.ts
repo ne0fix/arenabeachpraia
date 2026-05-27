@@ -103,6 +103,25 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true })
       }
 
+      // Reserva foi cancelada antes do pagamento chegar — rejeita e estorna se aprovado
+      if (payment.booking.status === 'CANCELLED') {
+        console.warn('Webhook: reserva já cancelada, rejeitando pagamento bookingId=', externalReference)
+        if (['approved', 'processed', 'accredited'].includes(mpStatus)) {
+          try {
+            await mp.refundPayment(Number(resourceId))
+            await prisma.payment.update({
+              where: { id: payment.id },
+              data: { status: 'REFUNDED', refundedAt: new Date(), refundReason: 'Reserva cancelada antes do pagamento', refundAmount: payment.amount },
+            })
+            console.log('Webhook: estorno automático realizado para reserva cancelada')
+          } catch (refundErr) {
+            console.error('Webhook: falha no estorno de reserva cancelada:', refundErr)
+            await prisma.payment.update({ where: { id: payment.id }, data: { status: 'CANCELLED' } })
+          }
+        }
+        return NextResponse.json({ ok: true })
+      }
+
       if (['approved', 'processed', 'accredited'].includes(mpStatus)) {
         const booking = payment.booking
 

@@ -4,6 +4,7 @@ import type { Booking } from '@/models/entities/Booking'
 import type { Payment } from '@/models/entities/Payment'
 import { BookingError, PaymentError } from '@/core/errors/AppError'
 import { prisma } from '@/infrastructure/database/prisma'
+import { MercadoPagoService } from '@/services/MercadoPagoService'
 
 export interface CancelBookingInput {
   bookingId: string
@@ -40,7 +41,21 @@ export class CancelBookingUseCase {
     let refundProcessed = false
     let updatedPayment: Payment | null = null
 
-    if (input.refund && booking.payment?.status === 'APPROVED') {
+    if (booking.payment?.status === 'PENDING' && booking.payment?.gatewayId) {
+      // PIX gerado mas ainda não pago: cancela no MercadoPago para invalidar o QR code
+      try {
+        const mp = await MercadoPagoService.create()
+        await mp.cancelPayment(Number(booking.payment.gatewayId))
+        console.log('PIX cancelado no MercadoPago para booking', booking.id)
+      } catch (err) {
+        // Não bloqueia o cancelamento — MP pode estar indisponível ou o PIX já expirou
+        console.error('Falha ao cancelar PIX no MercadoPago:', err)
+      }
+      updatedPayment = await this.paymentRepo.update(booking.payment.id, {
+        status: 'CANCELLED',
+        gatewayStatus: 'cancelled',
+      })
+    } else if (input.refund && booking.payment?.status === 'APPROVED') {
       // Integração real: chamar MercadoPago refund aqui
       // Por ora, simula estorno bem-sucedido
       updatedPayment = await this.paymentRepo.update(booking.payment.id, {

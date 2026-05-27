@@ -128,6 +128,20 @@ export class MercadoPagoService {
     }
   }
 
+  async cancelPayment(paymentId: number) {
+    try {
+      const result = await this.paymentClient.update({
+        id: paymentId,
+        body: { status: 'cancelled' } as any,
+      })
+      console.log('MP Payment cancelled:', { paymentId })
+      return result
+    } catch (error: any) {
+      console.error('MercadoPago cancelPayment error:', JSON.stringify(error?.cause ?? error?.message ?? error))
+      throw error
+    }
+  }
+
   async refundPayment(paymentId: number, amount?: number) {
     try {
       const result = await this.refundClient.create({
