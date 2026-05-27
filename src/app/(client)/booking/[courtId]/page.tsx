@@ -121,8 +121,9 @@ export default function BookingPage({ params }: BookingPageProps) {
                   <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 md:gap-3">
                     {group.slots.map((slot) => {
                       const isSelected = vm.selectedSlots.includes(slot.time)
-                      const isFirst = vm.selectedSlots[0] === slot.time
-                      const isLast = vm.selectedSlots[vm.selectedSlots.length - 1] === slot.time
+                      // Verifica se é início ou fim de algum bloco contíguo
+                      const runStart = vm.selectionRuns.some((r) => r[0] === slot.time && r.length > 1)
+                      const runEnd = vm.selectionRuns.some((r) => r[r.length - 1] === slot.time && r.length > 1)
                       return (
                         <button
                           key={slot.time}
@@ -131,13 +132,13 @@ export default function BookingPage({ params }: BookingPageProps) {
                           className={cn(
                             'py-2.5 md:py-3 px-1 rounded-xl border font-headline text-xs md:text-sm font-bold transition-all relative',
                             !slot.available && 'bg-surface-container-low text-outline/40 border-outline-variant/10 cursor-not-allowed',
-                            slot.available && !isSelected && 'bg-surface-container text-on-surface border-outline-variant/30 hover:bg-secondary-container',
-                            isSelected && 'bg-primary text-white border-primary shadow-md',
-                            (isFirst || isLast) && isSelected && 'scale-105'
+                            slot.available && !isSelected && 'bg-surface-container text-on-surface border-outline-variant/30 hover:bg-secondary-container cursor-pointer',
+                            isSelected && 'bg-primary text-white border-primary shadow-md cursor-pointer',
+                            (runStart || runEnd) && 'scale-105'
                           )}
                         >
                           {slot.time}
-                          {isFirst && vm.selectedSlots.length > 1 && (
+                          {runStart && (
                             <span className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-amber-400 rounded-full border border-white" />
                           )}
                         </button>
@@ -236,17 +237,32 @@ export default function BookingPage({ params }: BookingPageProps) {
                             <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider">
                               {format(vm.selectedDate, "dd 'de' MMM", { locale: ptBR })}
                             </p>
-                            <div className="flex items-center gap-1.5">
-                              <Clock className="w-3 h-3 text-primary flex-shrink-0" />
-                              <p className="font-headline text-sm font-bold text-on-surface truncate">
-                                {vm.selectedStartTime} — {vm.selectedEndTime}
-                              </p>
-                            </div>
+                            {vm.isNonContiguous ? (
+                              /* Blocos não-contíguos: lista cada bloco */
+                              <div className="space-y-0.5">
+                                {vm.selectionRuns.map((run) => (
+                                  <div key={run[0]} className="flex items-center gap-1.5">
+                                    <Clock className="w-3 h-3 text-primary flex-shrink-0" />
+                                    <p className="font-headline text-xs font-bold text-on-surface">
+                                      {run[0]} — {run[run.length - 1]}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1.5">
+                                <Clock className="w-3 h-3 text-primary flex-shrink-0" />
+                                <p className="font-headline text-sm font-bold text-on-surface truncate">
+                                  {vm.selectedStartTime} — {vm.selectedEndTime}
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0">
                           <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider">
                             {vm.selectedDurationHours}h · {vm.selectedSlots.length} {vm.selectedSlots.length === 1 ? 'horário' : 'horários'}
+                            {vm.isNonContiguous && ` · ${vm.selectionRuns.length} blocos`}
                           </p>
                           <p className="font-headline text-lg md:text-xl text-primary font-bold">
                             {formatCurrency(vm.selectedTotal)}

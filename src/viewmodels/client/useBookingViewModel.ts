@@ -23,6 +23,24 @@ function toMin(t: string) {
   return parseInt(t.split(':')[0]) * 60 + parseInt(t.split(':')[1])
 }
 
+// Agrupa slots selecionados em blocos contíguos (sem lacunas)
+function findSelectionRuns(selected: string[], allTimes: string[]): string[][] {
+  if (selected.length === 0) return []
+  const sorted = [...selected].sort((a, b) => allTimes.indexOf(a) - allTimes.indexOf(b))
+  const runs: string[][] = []
+  let current = [sorted[0]]
+  for (let i = 1; i < sorted.length; i++) {
+    if (allTimes.indexOf(sorted[i]) === allTimes.indexOf(sorted[i - 1]) + 1) {
+      current.push(sorted[i])
+    } else {
+      runs.push(current)
+      current = [sorted[i]]
+    }
+  }
+  runs.push(current)
+  return runs
+}
+
 export function useBookingViewModel(courtId: string) {
   const router = useRouter()
   const cart = useBookingCart()
@@ -60,9 +78,22 @@ export function useBookingViewModel(courtId: string) {
 
   // Computed values from selection
   const slotDuration = court?.slotDuration ?? 60
-  const selectedStartTime = selectedSlots[0] ?? null
-  const selectedEndTime = selectedSlots.length > 0
-    ? addMinutesToTime(selectedSlots[selectedSlots.length - 1], slotDuration)
+  const allTimes = useMemo(() => (availability?.slots ?? []).map((s) => s.time), [availability])
+
+  const selectionRuns = useMemo(
+    () => findSelectionRuns(selectedSlots, allTimes),
+    [selectedSlots, allTimes]
+  )
+  const isNonContiguous = selectionRuns.length > 1
+
+  // Para exibição: primeiro slot do primeiro grupo, último slot do último grupo
+  const sortedSelected = useMemo(
+    () => [...selectedSlots].sort((a, b) => allTimes.indexOf(a) - allTimes.indexOf(b)),
+    [selectedSlots, allTimes]
+  )
+  const selectedStartTime = sortedSelected[0] ?? null
+  const selectedEndTime = sortedSelected.length > 0
+    ? addMinutesToTime(sortedSelected[sortedSelected.length - 1], slotDuration)
     : null
   const selectedDurationHours = (selectedSlots.length * slotDuration) / 60
   const selectedTotal = Number(court?.pricePerHour ?? 0) * selectedDurationHours
@@ -75,67 +106,66 @@ export function useBookingViewModel(courtId: string) {
 
   const handleSlotSelect = (time: string) => {
     const allSlots = availability?.slots ?? []
-    const allTimes = allSlots.map((s) => s.time)
     const thisIdx = allTimes.indexOf(time)
 
-    // Click on already selected slot → deselect it and everything after
-    const existingIdx = selectedSlots.indexOf(time)
-    if (existingIdx !== -1) {
-      setSelectedSlots(selectedSlots.slice(0, existingIdx))
+    // Slot já selecionado → remove APENAS esse slot (não afeta os demais)
+    if (selectedSlots.includes(time)) {
+      setSelectedSlots(selectedSlots.filter((s) => s !== time))
       setSlotError('')
       return
     }
 
-    // Empty selection → start fresh
+    // Seleção vazia → inicia com este slot
     if (selectedSlots.length === 0) {
       setSelectedSlots([time])
       setSlotError('')
       return
     }
 
-    const firstSelected = selectedSlots[0]
-    const lastSelected = selectedSlots[selectedSlots.length - 1]
-    const firstIdx = allTimes.indexOf(firstSelected)
-    const lastIdx = allTimes.indexOf(lastSelected)
+    const selectedIdxs = sortedSelected.map((s) => allTimes.indexOf(s))
+    const firstIdx = selectedIdxs[0]
+    const lastIdx = selectedIdxs[selectedIdxs.length - 1]
 
     if (thisIdx > lastIdx) {
-      // Extending the end
-      const slotsInRange = allSlots.slice(lastIdx + 1, thisIdx + 1)
-      const blocked = slotsInRange.find((s) => !s.available)
+      // Expande para a direita a partir do último slot selecionado
+      const slotsToAdd = allSlots.slice(lastIdx + 1, thisIdx + 1)
+      const blocked = slotsToAdd.find((s) => !s.available)
       if (blocked) {
-        setSlotError(`O horário ${blocked.time} não está disponível. Sua reserva pode ir até ${lastSelected}.`)
+        setSlotError(`O horário ${blocked.time} não está disponível.`)
         return
       }
-      setSelectedSlots([...selectedSlots, ...slotsInRange.map((s) => s.time)])
+      setSelectedSlots([...selectedSlots, ...slotsToAdd.map((s) => s.time)])
       setSlotError('')
     } else if (thisIdx < firstIdx) {
-      // Extending the start
-      const slotsInRange = allSlots.slice(thisIdx, firstIdx)
-      const blocked = slotsInRange.find((s) => !s.available)
+      // Expande para a esquerda a partir do primeiro slot selecionado
+      const slotsToAdd = allSlots.slice(thisIdx, firstIdx)
+      const blocked = slotsToAdd.find((s) => !s.available)
       if (blocked) {
-        setSlotError(`O horário ${blocked.time} não está disponível. Selecione a partir de ${firstSelected}.`)
+        setSlotError(`O horário ${blocked.time} não está disponível.`)
         return
       }
-      setSelectedSlots([...slotsInRange.map((s) => s.time), ...selectedSlots])
+      setSelectedSlots([...slotsToAdd.map((s) => s.time), ...selectedSlots])
       setSlotError('')
     } else {
-      // Non-adjacent, non-selected → start fresh
-      setSelectedSlots([time])
+      // Clicou dentro do intervalo atual (preenchendo uma lacuna criada por desmarcação)
+      const newSlots = [...selectedSlots, time].sort(
+        (a, b) => allTimes.indexOf(a) - allTimes.indexOf(b)
+      )
+      setSelectedSlots(newSlots)
       setSlotError('')
     }
   }
 
   const addToCart = () => {
-    if (!selectedStartTime || !selectedEndTime || !court) return
-    cart.addItem({
-      courtId,
-      courtName: court.name,
-      date: dateStr,
-      startTime: selectedStartTime,
-      endTime: selectedEndTime,
-      totalAmount: selectedTotal,
-      durationHours: selectedDurationHours,
-    })
+    if (selectedSlots.length === 0 || !court) return
+    // Cada bloco contíguo vira um item separado no carrinho
+    for (const run of selectionRuns) {
+      const runStart = run[0]
+      const runEnd = addMinutesToTime(run[run.length - 1], slotDuration)
+      const durationHours = (run.length * slotDuration) / 60
+      const totalAmount = Number(court.pricePerHour) * durationHours
+      cart.addItem({ courtId, courtName: court.name, date: dateStr, startTime: runStart, endTime: runEnd, totalAmount, durationHours })
+    }
     setSelectedSlots([])
     setSlotError('')
     setAddedFeedback(true)
@@ -153,6 +183,8 @@ export function useBookingViewModel(courtId: string) {
     selectedEndTime,
     selectedDurationHours,
     selectedTotal,
+    selectionRuns,
+    isNonContiguous,
     slotError,
     availability,
     slotGroups,
