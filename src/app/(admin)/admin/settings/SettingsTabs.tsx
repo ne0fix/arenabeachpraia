@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { LayoutGrid, Phone, CreditCard } from 'lucide-react'
+import { LayoutGrid, Phone, CreditCard, KeyRound } from 'lucide-react'
 import { CourtSettingsClient } from './CourtSettingsClient'
 import { ContactSettingsClient } from './ContactSettingsClient'
 import { PaymentSettingsClient } from './PaymentSettingsClient'
+import { PasswordSettingsClient } from './PasswordSettingsClient'
 import type { Court } from '@/models/entities/Court'
 
 interface ContactSettings {
@@ -25,7 +26,7 @@ interface Props {
   contactSettings: ContactSettings | null
 }
 
-type Tab = 'courts' | 'contact' | 'payment'
+type Tab = 'courts' | 'contact' | 'payment' | 'password'
 
 export function SettingsTabs({ initialCourts, contactSettings }: Props) {
   const [tab, setTab] = useState<Tab>('courts')
@@ -40,7 +41,7 @@ export function SettingsTabs({ initialCourts, contactSettings }: Props) {
       </div>
 
       {/* Segmented tabs */}
-      <div className="flex gap-1.5 p-1 bg-surface-container rounded-xl w-full max-w-sm">
+      <div className="flex gap-1.5 p-1 bg-surface-container rounded-xl w-full max-w-md">
         <button
           type="button"
           onClick={() => setTab('courts')}
@@ -77,11 +78,24 @@ export function SettingsTabs({ initialCourts, contactSettings }: Props) {
           <CreditCard className="w-3.5 h-3.5" />
           Pagamento
         </button>
+        <button
+          type="button"
+          onClick={() => setTab('password')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg font-headline text-[10px] font-bold uppercase tracking-wider transition-all ${
+            tab === 'password'
+              ? 'bg-surface-container-lowest text-primary shadow-sm'
+              : 'text-on-surface-variant hover:text-on-surface'
+          }`}
+        >
+          <KeyRound className="w-3.5 h-3.5" />
+          Senha
+        </button>
       </div>
 
       {tab === 'courts' && <CourtSettingsClient initialCourts={initialCourts} hideTitle />}
       {tab === 'contact' && <ContactSettingsClient initialSettings={contactSettings} />}
       {tab === 'payment' && <PaymentSettingsClient />}
+      {tab === 'password' && <PasswordSettingsClient />}
     </div>
   )
 }
