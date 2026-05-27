@@ -6,6 +6,9 @@
     "dev": "tsx server.ts",
     "build": "prisma generate && next build",
     "start": "NODE_ENV=production tsx server.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "lint": "next lint",
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
@@ -46,12 +49,15 @@
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@vitest/coverage-v8": "^4.1.7",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.3.1",
     "postcss": "^8.5.0",
     "prisma": "^6.0.0",
     "tailwindcss": "^4.1.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.8.0"
+    "typescript": "^5.8.0",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^4.1.7"
   }
 }
