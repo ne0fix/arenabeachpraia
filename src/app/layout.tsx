@@ -3,6 +3,7 @@ import { Lexend, Be_Vietnam_Pro } from 'next/font/google'
 import './globals.css'
 import { QueryProvider } from '@/views/providers/QueryProvider'
 import { SessionProvider } from '@/views/providers/SessionProvider'
+import { AuthSyncProvider } from '@/views/providers/AuthSyncProvider'
 import { auth } from '@/auth'
 
 const lexend = Lexend({
@@ -52,7 +53,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="pt-BR" className={`${lexend.variable} ${beVietnamPro.variable}`}>
       <body className="antialiased">
         <SessionProvider session={session}>
-          <QueryProvider>{children}</QueryProvider>
+          <QueryProvider>
+            <AuthSyncProvider>{children}</AuthSyncProvider>
+          </QueryProvider>
         </SessionProvider>
       </body>
     </html>

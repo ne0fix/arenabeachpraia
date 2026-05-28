@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowLeft, Calendar, Plus, Clock, X, CheckCircle, Clock3, XCircle, QrCode, Copy, Check, Share2, MapPin, CreditCard, Banknote } from 'lucide-react'
+import { ArrowLeft, Calendar, Plus, Clock, X, CheckCircle, Clock3, XCircle, QrCode, Copy, Check, Share2, MapPin, CreditCard, Banknote, ChevronRight } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'motion/react'
 import Image from 'next/image'
@@ -231,6 +231,38 @@ export default function BookingsPage() {
       </header>
 
       <main className="w-full px-6 pb-24 md:pb-12 max-w-4xl mx-auto overflow-x-hidden">
+        {/* Banner: PIX pendente — abre detalhe da reserva para mostrar QR */}
+        {vm.pendingPixBookings.length > 0 && (
+          <section className="mb-4">
+            {vm.pendingPixBookings.map((b) => {
+              const minsLeft = Math.max(
+                0,
+                Math.ceil((new Date(b.createdAt).getTime() + 30 * 60 * 1000 - Date.now()) / 60000)
+              )
+              return (
+                <button
+                  key={b.id}
+                  onClick={() => setSelected(b)}
+                  className="w-full text-left bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-2xl p-4 flex items-center gap-3 transition-colors mb-2"
+                >
+                  <div className="bg-amber-200 rounded-xl p-2 flex-shrink-0">
+                    <QrCode className="w-5 h-5 text-amber-800" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-headline text-sm font-bold text-amber-900">
+                      PIX aguardando pagamento
+                    </p>
+                    <p className="font-headline text-xs text-amber-700 truncate">
+                      {b.court?.name} · {format(new Date(String(b.date).slice(0, 10) + 'T12:00:00'), "dd/MM", { locale: ptBR })} às {b.startTime} · {minsLeft} min restantes
+                    </p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-amber-700 flex-shrink-0" />
+                </button>
+              )
+            })}
+          </section>
+        )}
+
         <section className="mb-6 -mx-6 px-6">
           <div className="flex gap-2 overflow-x-auto pb-2 court-scrollbar">
             {FILTERS.map((f) => (

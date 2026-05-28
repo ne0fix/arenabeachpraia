@@ -38,6 +38,7 @@ const withDetails = {
       refundAmount: true,
       pixQrCode: true,
       pixQrCodeBase64: true,
+      pixExpiration: true,
     },
   },
 }
