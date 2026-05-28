@@ -35,19 +35,72 @@ export function useMyBookingsViewModel() {
     (b) => !userId || b.userId === userId
   )
 
-  // PIX pendentes ainda válidos (dentro da janela de 30 min)
-  const pendingPixBookings = useMemo(() => {
+  // PIX pendentes ainda válidos agrupados por gatewayId (para reconstruir batch)
+  const pendingPixGroups = useMemo(() => {
     const cutoff = Date.now() - PIX_VALIDITY_MIN * 60 * 1000
-    return allBookings.filter((b) => {
+    const isValid = (b: any) => {
       if (b.status !== 'PENDING') return false
-      const payment = (b as any).payment
-      if (!payment?.pixQrCode) return false
-      // Considera válido se foi criado dentro da janela ou se pixExpiration ainda futura
+      const payment = b.payment
+      if (!payment) return false
       const createdAtMs = new Date(b.createdAt).getTime()
       if (createdAtMs >= cutoff) return true
       if (payment.pixExpiration && new Date(payment.pixExpiration).getTime() > Date.now()) return true
       return false
-    })
+    }
+    const pending = allBookings.filter(isValid)
+    const groupsByGateway = new Map<string, BookingWithDetails[]>()
+    const ungrouped: BookingWithDetails[] = []
+    for (const b of pending) {
+      const gw = (b as any).payment?.gatewayId
+      if (gw) {
+        if (!groupsByGateway.has(gw)) groupsByGateway.set(gw, [])
+        groupsByGateway.get(gw)!.push(b)
+      } else if ((b as any).payment?.pixQrCode) {
+        ungrouped.push(b)
+      }
+    }
+    type Group = {
+      primary: BookingWithDetails
+      bookingIds: string[]
+      count: number
+      total: number
+      minsLeft: number
+    }
+    const result: Group[] = []
+    for (const items of groupsByGateway.values()) {
+      // O primário é o registro que mantém o pixQrCode
+      const primary = items.find((b) => (b as any).payment?.pixQrCode) ?? items[0]
+      const total = items.reduce((s, b) => s + Number((b as any).payment?.amount ?? 0), 0)
+      const earliestCreated = items.reduce(
+        (min, b) => Math.min(min, new Date(b.createdAt).getTime()),
+        Date.now()
+      )
+      const minsLeft = Math.max(
+        0,
+        Math.ceil((earliestCreated + PIX_VALIDITY_MIN * 60 * 1000 - Date.now()) / 60000)
+      )
+      result.push({
+        primary,
+        bookingIds: items.map((b) => b.id),
+        count: items.length,
+        total,
+        minsLeft,
+      })
+    }
+    for (const b of ungrouped) {
+      const minsLeft = Math.max(
+        0,
+        Math.ceil((new Date(b.createdAt).getTime() + PIX_VALIDITY_MIN * 60 * 1000 - Date.now()) / 60000)
+      )
+      result.push({
+        primary: b,
+        bookingIds: [b.id],
+        count: 1,
+        total: Number((b as any).payment?.amount ?? b.totalValue ?? 0),
+        minsLeft,
+      })
+    }
+    return result
   }, [allBookings])
 
   const filtered = allBookings.filter((b) => {
@@ -72,5 +125,5 @@ export function useMyBookingsViewModel() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['my-bookings', userId] }),
   })
 
-  return { filtered, isLoading, filter, setFilter, cancelBooking, cancelling, pendingPixBookings }
+  return { filtered, isLoading, filter, setFilter, cancelBooking, cancelling, pendingPixGroups }
 }

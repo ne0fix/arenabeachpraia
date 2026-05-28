@@ -231,18 +231,19 @@ export default function BookingsPage() {
       </header>
 
       <main className="w-full px-6 pb-24 md:pb-12 max-w-4xl mx-auto overflow-x-hidden">
-        {/* Banner: PIX pendente — abre detalhe da reserva para mostrar QR */}
-        {vm.pendingPixBookings.length > 0 && (
+        {/* Banner: PIX pendente — abre a tela completa de aguardando pagamento */}
+        {vm.pendingPixGroups.length > 0 && (
           <section className="mb-4">
-            {vm.pendingPixBookings.map((b) => {
-              const minsLeft = Math.max(
-                0,
-                Math.ceil((new Date(b.createdAt).getTime() + 30 * 60 * 1000 - Date.now()) / 60000)
-              )
+            {vm.pendingPixGroups.map((g) => {
+              const isBatch = g.count > 1
+              const batchParam = isBatch ? `&batchIds=${g.bookingIds.join(',')}` : ''
+              const summary = isBatch
+                ? `${g.count} horários · ${g.minsLeft} min restantes`
+                : `${g.primary.court?.name} · ${format(new Date(String(g.primary.date).slice(0, 10) + 'T12:00:00'), "dd/MM", { locale: ptBR })} às ${g.primary.startTime} · ${g.minsLeft} min restantes`
               return (
                 <button
-                  key={b.id}
-                  onClick={() => setSelected(b)}
+                  key={g.primary.id}
+                  onClick={() => router.push(`/booking-success?bookingId=${g.primary.id}${batchParam}`)}
                   className="w-full text-left bg-amber-50 border border-amber-200 hover:bg-amber-100 rounded-2xl p-4 flex items-center gap-3 transition-colors mb-2"
                 >
                   <div className="bg-amber-200 rounded-xl p-2 flex-shrink-0">
@@ -252,9 +253,7 @@ export default function BookingsPage() {
                     <p className="font-headline text-sm font-bold text-amber-900">
                       PIX aguardando pagamento
                     </p>
-                    <p className="font-headline text-xs text-amber-700 truncate">
-                      {b.court?.name} · {format(new Date(String(b.date).slice(0, 10) + 'T12:00:00'), "dd/MM", { locale: ptBR })} às {b.startTime} · {minsLeft} min restantes
-                    </p>
+                    <p className="font-headline text-xs text-amber-700 truncate">{summary}</p>
                   </div>
                   <ChevronRight className="w-5 h-5 text-amber-700 flex-shrink-0" />
                 </button>
