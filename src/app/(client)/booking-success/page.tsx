@@ -3,7 +3,9 @@
 import { Suspense, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { CheckCircle, Calendar, Clock, Share2, Home, XCircle, AlertTriangle, Loader2, QrCode, Copy, Check, ShoppingCart } from 'lucide-react'
+import { CheckCircle, Calendar, Clock, Share2, Home, XCircle, AlertTriangle, Loader2, QrCode, Copy, Check, ShoppingCart, ChevronRight, X } from 'lucide-react'
+import { AnimatePresence } from 'motion/react'
+import { formatCurrency } from '@/core/utils/formatCurrency'
 import { useState } from 'react'
 import { useBookingCart } from '@/lib/useBookingCart'
 import { format } from 'date-fns'
@@ -21,7 +23,18 @@ function SuccessContent() {
   const batchIds = params.get('batchIds')?.split(',').filter(Boolean) ?? []
   const isBatch = batchIds.length > 1
   const [copied, setCopied] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
   const cart = useBookingCart()
+
+  // Em batch, busca todos os bookings para mostrar no modal de detalhes
+  const { data: batchData } = useQuery<{ bookings: Array<{ id: string; date: string; startTime: string; endTime: string; status: string; court: { name: string }; payment: { amount: number } | null }> }>({
+    queryKey: ['batch-bookings', batchIds.join(',')],
+    queryFn: () => fetch(`/api/bookings/by-ids?ids=${batchIds.join(',')}`).then((r) => r.json()),
+    enabled: isBatch,
+    refetchInterval: 5000,
+  })
+  const batchBookings = batchData?.bookings ?? []
+  const batchTotal = batchBookings.reduce((s, b) => s + Number(b.payment?.amount ?? 0), 0)
 
   const copyPix = (code: string) => {
     navigator.clipboard.writeText(code)
@@ -177,24 +190,140 @@ function SuccessContent() {
 
         {/* Resumo da reserva */}
         {booking.court && (
-          <div className="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/30 space-y-2">
-            <p className="font-headline text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Reserva</p>
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-primary" />
-              <span className="font-headline text-sm font-bold">{booking.court.name}</span>
+          isBatch ? (
+            <div className="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/30">
+              <p className="font-headline text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-2">
+                Reservas ({batchIds.length})
+              </p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-primary flex-shrink-0" />
+                    <span className="font-headline text-sm font-bold truncate">
+                      {batchIds.length} horário{batchIds.length > 1 ? 's' : ''} · {formatCurrency(batchTotal)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-primary flex-shrink-0" />
+                    <span className="font-headline text-xs text-on-surface-variant">
+                      Total a pagar com este PIX
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowDetails(true)}
+                  className="flex items-center gap-1 px-3 py-2 rounded-lg bg-primary/10 text-primary font-headline text-xs font-bold hover:bg-primary/20 transition-colors whitespace-nowrap"
+                >
+                  Detalhes
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-primary" />
-              <span className="font-headline text-sm">
-                {format(new Date((booking.date as any).toString().slice(0, 10) + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR })} às {booking.startTime}
-              </span>
+          ) : (
+            <div className="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/30 space-y-2">
+              <p className="font-headline text-[10px] font-bold text-on-surface-variant uppercase tracking-widest">Reserva</p>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-primary" />
+                <span className="font-headline text-sm font-bold">{booking.court.name}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary" />
+                <span className="font-headline text-sm">
+                  {format(new Date((booking.date as any).toString().slice(0, 10) + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR })} às {booking.startTime}
+                </span>
+              </div>
             </div>
-          </div>
+          )
         )}
 
         <Button variant="outline" className="w-full h-12" onClick={() => router.push('/')}>
           <Home className="w-5 h-5 mr-2" /> Ir para o Início
         </Button>
+
+        {/* Modal de detalhes — só em batch */}
+        <AnimatePresence>
+          {showDetails && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[100] bg-black/60 flex items-end md:items-center justify-center p-4"
+              onClick={() => setShowDetails(false)}
+            >
+              <motion.div
+                initial={{ y: 50, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 50, opacity: 0 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                className="bg-surface max-w-md w-full rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Cabeçalho */}
+                <div className="px-5 py-4 flex items-center justify-between border-b border-outline-variant/20">
+                  <div>
+                    <h2 className="font-headline text-base font-bold text-on-surface">Detalhes das Reservas</h2>
+                    <p className="font-headline text-xs text-on-surface-variant">
+                      {batchBookings.length} horário{batchBookings.length > 1 ? 's' : ''} neste pagamento
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowDetails(false)}
+                    className="p-2 hover:bg-surface-container rounded-full transition-colors"
+                    aria-label="Fechar"
+                  >
+                    <X className="w-5 h-5 text-on-surface-variant" />
+                  </button>
+                </div>
+
+                {/* Lista de reservas */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                  {batchBookings.length === 0 ? (
+                    <p className="font-headline text-sm text-on-surface-variant text-center py-8">Carregando…</p>
+                  ) : (
+                    batchBookings.map((b) => {
+                      const dateStr = format(new Date(String(b.date).slice(0, 10) + 'T12:00:00'), "dd 'de' MMM", { locale: ptBR })
+                      return (
+                        <div key={b.id} className="bg-surface-container-lowest border border-outline-variant/20 rounded-xl p-3">
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <p className="font-headline text-sm font-bold text-primary truncate">{b.court.name}</p>
+                            <span className="font-headline text-sm font-bold text-primary whitespace-nowrap">
+                              {formatCurrency(Number(b.payment?.amount ?? 0))}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-on-surface-variant">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              <span>{dateStr}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              <span>{b.startTime} — {b.endTime}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+
+                {/* Rodapé com total e botão fechar */}
+                <div className="px-5 py-4 border-t border-outline-variant/20 bg-surface-container/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-headline text-xs font-bold text-on-surface-variant uppercase tracking-wider">
+                      Total a pagar
+                    </span>
+                    <span className="font-headline text-xl font-bold text-primary">
+                      {formatCurrency(batchTotal)}
+                    </span>
+                  </div>
+                  <Button className="w-full h-11" onClick={() => setShowDetails(false)}>
+                    Fechar e continuar pagamento
+                  </Button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
     )
   }
