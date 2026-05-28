@@ -12,7 +12,7 @@ export interface CreatePixInput {
   externalReference: string
   amount: number
   payerEmail: string
-  description: PaymentDescription
+  description: PaymentDescription | string
 }
 
 export interface CreateCardInput {
@@ -21,7 +21,7 @@ export interface CreateCardInput {
   payerEmail: string
   token: string
   paymentMethodId: string
-  description: PaymentDescription
+  description: PaymentDescription | string
 }
 
 export class MercadoPagoService {
@@ -48,7 +48,8 @@ export class MercadoPagoService {
 
   public notificationUrl?: string
 
-  private buildDescription(d: PaymentDescription): string {
+  private buildDescription(d: PaymentDescription | string): string {
+    if (typeof d === 'string') return d.slice(0, 255)
     return `${d.courtName} | ${d.date} | ${d.startTime}–${d.endTime}`
   }
 

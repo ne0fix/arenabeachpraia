@@ -1,0 +1,206 @@
+import { NextResponse } from 'next/server'
+import { auth } from '@/auth'
+import { z } from 'zod'
+import { prisma } from '@/infrastructure/database/prisma'
+import { MercadoPagoService } from '@/services/MercadoPagoService'
+import { generateAccessCode, calculateDuration } from '@/core/utils/helpers'
+import { emitToRoom } from '@/lib/socket-server'
+import { format, parse } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+
+const batchSchema = z.object({
+  items: z.array(z.object({
+    courtId: z.string().min(1),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    startTime: z.string().regex(/^\d{2}:\d{2}$/),
+    endTime: z.string().regex(/^\d{2}:\d{2}$/),
+    cartItemId: z.string(),
+  })).min(2),
+  paymentMethod: z.enum(['PIX', 'CREDIT_CARD', 'DEBIT_CARD']),
+  paymentToken: z.string().optional(),
+  cardBrand: z.string().optional(),
+})
+
+export async function POST(req: Request) {
+  const session = await auth()
+  if (!session?.user?.id || !session?.user?.email) {
+    return NextResponse.json({ message: 'Não autenticado' }, { status: 401 })
+  }
+
+  const body = await req.json()
+  const parsed = batchSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ message: 'Dados inválidos', errors: parsed.error.flatten() }, { status: 400 })
+  }
+
+  const { items, paymentMethod, paymentToken, cardBrand } = parsed.data
+
+  // Buscar quadras
+  const courtIds = [...new Set(items.map(i => i.courtId))]
+  const courts = await prisma.court.findMany({ where: { id: { in: courtIds }, isActive: true } })
+  const courtMap = new Map(courts.map(c => [c.id, c]))
+
+  if (courts.length !== courtIds.length) {
+    return NextResponse.json({ message: 'Uma ou mais quadras não encontradas' }, { status: 404 })
+  }
+
+  // Verificar disponibilidade de todos os slots antes de criar qualquer booking
+  for (const item of items) {
+    const conflict = await prisma.booking.findFirst({
+      where: {
+        courtId: item.courtId,
+        date: new Date(item.date + 'T00:00:00'),
+        status: 'CONFIRMED',
+        OR: [
+          { startTime: { gte: item.startTime, lt: item.endTime } },
+          { endTime: { gt: item.startTime, lte: item.endTime } },
+          { startTime: { lte: item.startTime }, endTime: { gte: item.endTime } },
+        ],
+      },
+    })
+    if (conflict) {
+      const dateFormatted = format(parse(item.date, 'yyyy-MM-dd', new Date()), 'dd/MM', { locale: ptBR })
+      return NextResponse.json({
+        message: `Horário ${item.startTime} de ${dateFormatted} não está mais disponível`,
+        code: 'SLOT_NOT_AVAILABLE',
+      }, { status: 409 })
+    }
+  }
+
+  // Calcular totais por item
+  const enriched = items.map(item => {
+    const court = courtMap.get(item.courtId)!
+    const duration = calculateDuration(item.startTime, item.endTime)
+    const amount = Number(court.pricePerHour) * duration
+    const dateFormatted = format(parse(item.date, 'yyyy-MM-dd', new Date()), 'dd/MM', { locale: ptBR })
+    return { ...item, court, duration, amount, dateFormatted }
+  })
+  const totalAmount = enriched.reduce((s, i) => s + i.amount, 0)
+
+  // Criar todos os bookings em transação
+  const bookings = await prisma.$transaction(
+    enriched.map(d =>
+      prisma.booking.create({
+        data: {
+          userId: session.user.id!,
+          courtId: d.courtId,
+          date: new Date(d.date + 'T00:00:00'),
+          startTime: d.startTime,
+          endTime: d.endTime,
+          durationHours: d.duration,
+          totalValue: d.amount,
+          status: 'PENDING',
+          accessCode: generateAccessCode(),
+        },
+      })
+    )
+  )
+
+  // Descrição combinada para o MercadoPago (máx 255 chars)
+  const descLines = enriched.map(d => `${d.court.name} ${d.dateFormatted} ${d.startTime}–${d.endTime}`)
+  const description = descLines.join(' + ').slice(0, 255)
+
+  const mp = await MercadoPagoService.create()
+
+  let pixQrCode: string | null = null
+  let pixQrCodeBase64: string | null = null
+  let pixExpiration: Date | null = null
+  let gatewayId: string | null = null
+  let gatewayStatus = 'PENDING'
+
+  // external_reference = ID do primeiro booking (o webhook vai buscar todos pelo gatewayId)
+  const primaryBookingId = bookings[0].id
+
+  try {
+    if (paymentMethod === 'PIX') {
+      const mpPayment = await mp.createPixPayment({
+        externalReference: primaryBookingId,
+        amount: totalAmount,
+        payerEmail: session.user.email!,
+        description,
+      })
+      gatewayId = mpPayment.id?.toString() ?? null
+      gatewayStatus = mpPayment.status ?? 'PENDING'
+      const txData = (mpPayment as any).point_of_interaction?.transaction_data
+      pixQrCode = txData?.qr_code ?? null
+      pixQrCodeBase64 = txData?.qr_code_base64 ?? null
+      pixExpiration = txData?.expiration_date ? new Date(txData.expiration_date) : null
+    } else {
+      const mpPayment = await mp.createCardPayment({
+        externalReference: primaryBookingId,
+        amount: totalAmount,
+        payerEmail: session.user.email!,
+        token: paymentToken ?? '',
+        paymentMethodId: cardBrand ?? 'visa',
+        description,
+      })
+      gatewayId = mpPayment.id?.toString() ?? null
+      gatewayStatus = mpPayment.status ?? 'PENDING'
+    }
+  } catch (error) {
+    // Cancela os bookings se MP falhar
+    await prisma.booking.updateMany({
+      where: { id: { in: bookings.map(b => b.id) } },
+      data: { status: 'CANCELLED', cancelReason: 'PAYMENT_FAILED', cancelledAt: new Date(), cancelledBy: 'system' },
+    })
+    console.error('Batch MercadoPago error:', error)
+    return NextResponse.json({ message: 'Erro ao processar pagamento' }, { status: 500 })
+  }
+
+  const isApproved = ['approved', 'processed', 'accredited'].includes(gatewayStatus)
+
+  // Criar registros de pagamento — todos com o mesmo gatewayId
+  await prisma.$transaction(
+    bookings.map((booking, idx) =>
+      prisma.payment.create({
+        data: {
+          bookingId: booking.id,
+          method: paymentMethod,
+          status: isApproved ? 'APPROVED' : 'PENDING',
+          amount: enriched[idx].amount,
+          gatewayId: gatewayId?.toString() || null,
+          gatewayStatus,
+          // QR code armazenado apenas no registro do booking primário
+          pixQrCode: idx === 0 ? pixQrCode : null,
+          pixQrCodeBase64: idx === 0 ? pixQrCodeBase64 : null,
+          pixExpiration,
+          cardLastFour: null,
+          cardBrand: null,
+          installments: 1,
+          paidAt: isApproved ? new Date() : null,
+          refundedAt: null,
+          refundedBy: null,
+          refundAmount: null,
+          refundGatewayId: null,
+          refundReason: null,
+        },
+      })
+    )
+  )
+
+  // Se cartão aprovado imediatamente, confirma todos
+  if (isApproved) {
+    await prisma.booking.updateMany({
+      where: { id: { in: bookings.map(b => b.id) } },
+      data: { status: 'CONFIRMED' },
+    })
+  }
+
+  // Notifica admin em tempo real
+  for (const d of enriched) {
+    emitToRoom('admin', 'booking:new', {
+      courtId: d.courtId,
+      date: d.date,
+      startTime: d.startTime,
+      userName: session.user.name,
+    })
+  }
+
+  return NextResponse.json({
+    primaryBookingId,
+    bookingIds: bookings.map(b => b.id),
+    pixQrCode,
+    pixQrCodeBase64,
+    totalAmount,
+  }, { status: 201 })
+}

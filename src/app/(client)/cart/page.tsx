@@ -31,11 +31,13 @@ export default function CartPage() {
   }, [cart.items])
 
   const handleCheckout = () => {
-    const first = cart.items[0]
-    if (!first) return
-    router.push(
-      `/payment?courtId=${first.courtId}&date=${first.date}&startTime=${first.startTime}&endTime=${first.endTime}&cartItemId=${first.id}`
-    )
+    if (!cart.items.length) return
+    if (cart.items.length === 1) {
+      const item = cart.items[0]
+      router.push(`/payment?courtId=${item.courtId}&date=${item.date}&startTime=${item.startTime}&endTime=${item.endTime}&cartItemId=${item.id}`)
+    } else {
+      router.push('/payment?batch=true')
+    }
   }
 
   return (

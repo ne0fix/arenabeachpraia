@@ -18,6 +18,8 @@ function SuccessContent() {
   const router = useRouter()
   const bookingId = params.get('bookingId')
   const cartItemId = params.get('cartItemId')
+  const batchIds = params.get('batchIds')?.split(',').filter(Boolean) ?? []
+  const isBatch = batchIds.length > 1
   const [copied, setCopied] = useState(false)
   const cart = useBookingCart()
 
@@ -196,9 +198,14 @@ function SuccessContent() {
       </motion.div>
 
       <div className="text-center mb-8">
-        <h1 className="font-headline text-3xl text-primary font-bold mb-2">Reserva Confirmada!</h1>
+        <h1 className="font-headline text-3xl text-primary font-bold mb-2">
+          {isBatch ? 'Reservas Confirmadas!' : 'Reserva Confirmada!'}
+        </h1>
         <p className="text-on-surface-variant max-w-[280px] mx-auto text-sm leading-relaxed">
-          Tudo pronto para o seu jogo. A Arena Beach Serra te espera!
+          {isBatch
+            ? `${batchIds.length} reservas confirmadas. Tudo pronto para os seus jogos!`
+            : 'Tudo pronto para o seu jogo. A Arena Beach Serra te espera!'
+          }
         </p>
       </div>
 

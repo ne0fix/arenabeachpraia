@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { useSiteSettings } from '@/views/providers/SiteSettingsProvider'
+import { useBookingCart } from '@/lib/useBookingCart'
 
 type PaymentMethod = 'PIX' | 'CREDIT_CARD'
 
@@ -17,19 +18,24 @@ export function usePaymentViewModel() {
   const router = useRouter()
   const params = useSearchParams()
   const { mpPublicKey } = useSiteSettings()
+  const cart = useBookingCart()
   const [method, setMethod] = useState<PaymentMethod>('PIX')
   const [pixQrCode, setPixQrCode] = useState<string | null>(null)
   const [pixQrCodeBase64, setPixQrCodeBase64] = useState<string | null>(null)
   const [bookingId, setBookingId] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [batchPending, setBatchPending] = useState(false)
 
+  const isBatch = params.get('batch') === 'true'
+  const cartItemId = params.get('cartItemId') ?? ''
+
+  // Params usados apenas no fluxo single
   const courtId = params.get('courtId') ?? ''
   const date = params.get('date') ?? ''
   const startTime = params.get('startTime') ?? ''
   const endTime = params.get('endTime') ?? ''
-  const cartItemId = params.get('cartItemId') ?? ''
 
-  const { mutateAsync: createBooking, isPending } = useMutation({
+  const { mutateAsync: createSingleBooking, isPending: singlePending } = useMutation({
     mutationFn: async (data: { paymentToken?: string; cardBrand?: string }) => {
       const res = await fetch('/api/bookings', {
         method: 'POST',
@@ -49,17 +55,14 @@ export function usePaymentViewModel() {
     },
     onSuccess: (data) => {
       setBookingId(data.booking.id)
+      const cartParam = cartItemId ? `&cartItemId=${cartItemId}` : ''
       if (method === 'PIX' && data.pixQrCode) {
         setPixQrCode(data.pixQrCode)
         setPixQrCodeBase64(data.pixQrCodeBase64 || null)
-        // Redireciona para booking-success que faz polling automático.
-        // Pequeno delay para o QR aparecer brevemente antes de redirecionar.
-        const cartParam = cartItemId ? `&cartItemId=${cartItemId}` : ''
         setTimeout(() => {
           router.push(`/booking-success?bookingId=${data.booking.id}${cartParam}`)
         }, 1500)
       } else {
-        const cartParam = cartItemId ? `&cartItemId=${cartItemId}` : ''
         router.push(`/booking-success?bookingId=${data.booking.id}${cartParam}`)
       }
     },
@@ -67,6 +70,66 @@ export function usePaymentViewModel() {
       router.push('/booking-error?code=PAYMENT_FAILED')
     },
   })
+
+  const createBatchBooking = async (cardData?: { paymentToken: string; cardBrand: string }) => {
+    setBatchPending(true)
+    try {
+      const items = cart.items.map(i => ({
+        courtId: i.courtId,
+        date: i.date,
+        startTime: i.startTime,
+        endTime: i.endTime,
+        cartItemId: i.id,
+      }))
+
+      const res = await fetch('/api/bookings/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          items,
+          paymentMethod: method,
+          paymentToken: cardData?.paymentToken,
+          cardBrand: cardData?.cardBrand,
+        }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.message ?? 'Erro ao criar reservas')
+      }
+
+      const data = await res.json() as {
+        primaryBookingId: string
+        bookingIds: string[]
+        pixQrCode?: string
+        pixQrCodeBase64?: string
+        totalAmount: number
+      }
+
+      setBookingId(data.primaryBookingId)
+      const batchParam = `&batchIds=${data.bookingIds.join(',')}`
+
+      if (method === 'PIX' && data.pixQrCode) {
+        setPixQrCode(data.pixQrCode)
+        setPixQrCodeBase64(data.pixQrCodeBase64 || null)
+        setTimeout(() => {
+          // Limpa o carrinho — todas as reservas estão criadas
+          cart.clearCart()
+          router.push(`/booking-success?bookingId=${data.primaryBookingId}${batchParam}`)
+        }, 1500)
+      } else {
+        cart.clearCart()
+        router.push(`/booking-success?bookingId=${data.primaryBookingId}${batchParam}`)
+      }
+    } catch (err: any) {
+      console.error('Batch booking error:', err)
+      router.push(`/booking-error?code=PAYMENT_FAILED&message=${encodeURIComponent(err.message ?? '')}`)
+    } finally {
+      setBatchPending(false)
+    }
+  }
+
+  const isPending = isBatch ? batchPending : singlePending
 
   const confirmPayment = async (cardData?: {
     cardNumber: string
@@ -93,13 +156,22 @@ export function usePaymentViewModel() {
         })
 
         const brand = tokenResult.card?.payment_method?.id ?? tokenResult.payment_method?.id ?? 'visa'
-        await createBooking({ paymentToken: tokenResult.id, cardBrand: brand })
+
+        if (isBatch) {
+          await createBatchBooking({ paymentToken: tokenResult.id, cardBrand: brand })
+        } else {
+          await createSingleBooking({ paymentToken: tokenResult.id, cardBrand: brand })
+        }
       } catch (e) {
         console.error('Card tokenization failed:', e)
         router.push('/booking-error?code=TOKEN_FAILED')
       }
     } else {
-      await createBooking({})
+      if (isBatch) {
+        await createBatchBooking()
+      } else {
+        await createSingleBooking({})
+      }
     }
   }
 
@@ -118,10 +190,13 @@ export function usePaymentViewModel() {
   return {
     method,
     setMethod,
+    isBatch,
     courtId,
     date,
     startTime,
     endTime,
+    cartItems: cart.items,
+    cartTotal: cart.totalAmount,
     pixQrCode,
     pixQrCodeBase64,
     copied,
