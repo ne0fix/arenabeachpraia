@@ -40,33 +40,62 @@ export class CancelBookingUseCase {
 
     let refundProcessed = false
     let updatedPayment: Payment | null = null
+    const payment = booking.payment
 
-    if (booking.payment?.status === 'PENDING' && booking.payment?.gatewayId) {
-      // PIX gerado mas ainda não pago: cancela no MercadoPago para invalidar o QR code
-      try {
-        const mp = await MercadoPagoService.create()
-        await mp.cancelPayment(Number(booking.payment.gatewayId))
-        console.log('PIX cancelado no MercadoPago para booking', booking.id)
-      } catch (err) {
-        // Não bloqueia o cancelamento — MP pode estar indisponível ou o PIX já expirou
-        console.error('Falha ao cancelar PIX no MercadoPago:', err)
+    if (payment?.gatewayId) {
+      // Detecta se este pagamento é parte de um batch (mesmo gatewayId em outros bookings)
+      const siblings = await prisma.payment.count({
+        where: {
+          gatewayId: payment.gatewayId,
+          bookingId: { not: booking.id },
+        },
+      })
+      const isBatch = siblings > 0
+
+      if (payment.status === 'PENDING') {
+        if (isBatch) {
+          // Em batch PENDING não dá pra cancelar só este; o PIX é único
+          // Marca o payment do booking como cancelado mas não toca no MP
+          updatedPayment = await this.paymentRepo.update(payment.id, {
+            status: 'CANCELLED',
+            gatewayStatus: 'cancelled',
+          })
+        } else {
+          // Single: cancela o PIX no MP para invalidar o QR code
+          try {
+            const mp = await MercadoPagoService.create()
+            await mp.cancelPayment(Number(payment.gatewayId))
+            console.log('PIX cancelado no MP para booking', booking.id)
+          } catch (err) {
+            console.error('Falha ao cancelar PIX no MP:', err)
+          }
+          updatedPayment = await this.paymentRepo.update(payment.id, {
+            status: 'CANCELLED',
+            gatewayStatus: 'cancelled',
+          })
+        }
+      } else if (input.refund && payment.status === 'APPROVED') {
+        // Estorno real no MercadoPago (refund parcial pelo amount deste booking)
+        const refundAmount = Number(payment.amount)
+        try {
+          const mp = await MercadoPagoService.create()
+          const mpRefund = await mp.refundPayment(Number(payment.gatewayId), refundAmount)
+          const refundId = (mpRefund as any).id?.toString() || `REFUND-${Date.now()}`
+          updatedPayment = await this.paymentRepo.update(payment.id, {
+            status: 'REFUNDED',
+            refundedAt: new Date(),
+            refundedBy: input.cancelledBy,
+            refundAmount,
+            refundReason: input.reason,
+            refundGatewayId: refundId,
+          })
+          refundProcessed = true
+        } catch (err: any) {
+          const detail = err?.cause?.message ?? err?.message ?? 'Erro desconhecido'
+          console.error('MercadoPago Refund Error:', JSON.stringify(err?.cause ?? err))
+          throw new PaymentError('REFUND_GATEWAY_ERROR', `Erro MercadoPago: ${detail}`)
+        }
       }
-      updatedPayment = await this.paymentRepo.update(booking.payment.id, {
-        status: 'CANCELLED',
-        gatewayStatus: 'cancelled',
-      })
-    } else if (input.refund && booking.payment?.status === 'APPROVED') {
-      // Integração real: chamar MercadoPago refund aqui
-      // Por ora, simula estorno bem-sucedido
-      updatedPayment = await this.paymentRepo.update(booking.payment.id, {
-        status: 'REFUNDED',
-        refundedAt: new Date(),
-        refundedBy: input.cancelledBy,
-        refundAmount: booking.payment.amount,
-        refundReason: input.reason,
-        refundGatewayId: `REFUND-${Date.now()}`,
-      })
-      refundProcessed = true
     }
 
     const updatedBooking = await this.bookingRepo.update(booking.id, {
@@ -84,7 +113,7 @@ export class CancelBookingUseCase {
         entityType: 'Booking',
         entityId: booking.id,
         oldData: { status: booking.status } as any,
-        newData: { status: 'CANCELLED', refund: input.refund } as any,
+        newData: { status: 'CANCELLED', refund: input.refund, refundProcessed } as any,
       },
     })
 

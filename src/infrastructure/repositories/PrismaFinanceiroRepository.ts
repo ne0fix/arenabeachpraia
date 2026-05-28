@@ -12,6 +12,14 @@ import {
 import { PaymentStatus, PaymentMethod } from "@prisma/client";
 import { startOfDay, endOfDay, subDays, differenceInDays, format } from "date-fns";
 
+// Payments com este refundReason são APPROVED no banco mas pendentes de estorno
+// manual (cliente pagou após outro confirmar primeiro). NÃO contam como receita.
+const PENDING_REFUND_FLAG = "PENDING_MANUAL_REFUND";
+
+function isPendingManualRefund(p: { refundReason: string | null }): boolean {
+  return p.refundReason?.startsWith(PENDING_REFUND_FLAG) ?? false;
+}
+
 export class PrismaFinanceiroRepository implements IFinanceiroRepository {
   async getSummary(startDate: Date, endDate: Date): Promise<FinanceiroSummary> {
     const start = startOfDay(startDate);
@@ -25,15 +33,23 @@ export class PrismaFinanceiroRepository implements IFinanceiroRepository {
         status: true,
         amount: true,
         refundAmount: true,
+        refundReason: true,
       },
     });
 
-    const approved = payments.filter((p) => p.status === PaymentStatus.APPROVED);
+    // Excluí pagamentos pendentes de estorno manual da receita confirmada
+    const approved = payments.filter(
+      (p) => p.status === PaymentStatus.APPROVED && !isPendingManualRefund(p)
+    );
+    const pendingManualRefund = payments.filter(
+      (p) => p.status === PaymentStatus.APPROVED && isPendingManualRefund(p)
+    );
     const refunded = payments.filter(
       (p) => p.status === PaymentStatus.REFUNDED || p.status === PaymentStatus.PARTIAL_REFUND
     );
 
     const grossRevenue = approved.reduce((acc, p) => acc + Number(p.amount), 0);
+    const pendingRefundAmount = pendingManualRefund.reduce((acc, p) => acc + Number(p.amount), 0);
     const totalRefunded = refunded.reduce((acc, p) => acc + Number(p.refundAmount || 0), 0);
     const netRevenue = grossRevenue - totalRefunded;
     const averageTicket = approved.length > 0 ? grossRevenue / approved.length : 0;
@@ -62,10 +78,13 @@ export class PrismaFinanceiroRepository implements IFinanceiroRepository {
         status: true,
         amount: true,
         refundAmount: true,
+        refundReason: true,
       },
     });
 
-    const prevApproved = prevPayments.filter((p) => p.status === PaymentStatus.APPROVED);
+    const prevApproved = prevPayments.filter(
+      (p) => p.status === PaymentStatus.APPROVED && !isPendingManualRefund(p)
+    );
     const prevRefunded = prevPayments.filter(
       (p) => p.status === PaymentStatus.REFUNDED || p.status === PaymentStatus.PARTIAL_REFUND
     );
@@ -92,6 +111,8 @@ export class PrismaFinanceiroRepository implements IFinanceiroRepository {
         net: netRevenue,
         refunded: totalRefunded,
         averageTicket,
+        pendingManualRefund: pendingRefundAmount,
+        pendingManualRefundCount: pendingManualRefund.length,
       },
       transactions: {
         total: totalTransactions,
@@ -136,6 +157,7 @@ export class PrismaFinanceiroRepository implements IFinanceiroRepository {
         status: true,
         amount: true,
         refundAmount: true,
+        refundReason: true,
       },
     });
 
@@ -165,7 +187,7 @@ export class PrismaFinanceiroRepository implements IFinanceiroRepository {
         count: 0,
       };
 
-      if (p.status === PaymentStatus.APPROVED) {
+      if (p.status === PaymentStatus.APPROVED && !isPendingManualRefund(p)) {
         existing.gross += Number(p.amount);
         existing.count += 1;
       } else if (
@@ -195,6 +217,7 @@ export class PrismaFinanceiroRepository implements IFinanceiroRepository {
         status: true,
         amount: true,
         refundAmount: true,
+        refundReason: true,
       },
     });
 
@@ -205,12 +228,14 @@ export class PrismaFinanceiroRepository implements IFinanceiroRepository {
     ];
 
     const totalGross = payments
-      .filter((p) => p.status === PaymentStatus.APPROVED)
+      .filter((p) => p.status === PaymentStatus.APPROVED && !isPendingManualRefund(p))
       .reduce((acc, p) => acc + Number(p.amount), 0);
 
     return methods.map((m) => {
       const methodPayments = payments.filter((p) => p.method === m);
-      const approved = methodPayments.filter((p) => p.status === PaymentStatus.APPROVED);
+      const approved = methodPayments.filter(
+        (p) => p.status === PaymentStatus.APPROVED && !isPendingManualRefund(p)
+      );
       const refunded = methodPayments.filter(
         (p) => p.status === PaymentStatus.REFUNDED || p.status === PaymentStatus.PARTIAL_REFUND
       );
@@ -324,17 +349,17 @@ export class PrismaFinanceiroRepository implements IFinanceiroRepository {
       }),
     ]);
 
-    // Summary of filtered results
-    const summaryAggregate = await prisma.payment.aggregate({
+    // Summary considera receita confirmada — exclui pendentes de estorno manual
+    const allFiltered = await prisma.payment.findMany({
       where,
-      _sum: {
-        amount: true,
-        refundAmount: true,
-      },
-      _count: {
-        id: true,
-      },
+      select: { status: true, amount: true, refundAmount: true, refundReason: true },
     });
+    const confirmedSum = allFiltered
+      .filter((p) => p.status === PaymentStatus.APPROVED && !isPendingManualRefund(p))
+      .reduce((s, p) => s + Number(p.amount), 0);
+    const refundedSum = allFiltered
+      .filter((p) => p.status === PaymentStatus.REFUNDED || p.status === PaymentStatus.PARTIAL_REFUND)
+      .reduce((s, p) => s + Number(p.refundAmount || 0), 0);
 
     const data: Transaction[] = payments.map((p) => ({
       id: p.id,
@@ -349,6 +374,7 @@ export class PrismaFinanceiroRepository implements IFinanceiroRepository {
       gatewayStatus: p.gatewayStatus,
       cardLastFour: p.cardLastFour,
       cardBrand: p.cardBrand,
+      pendingManualRefund: isPendingManualRefund(p),
       booking: {
         id: p.booking.id,
         date: p.booking.date,
@@ -376,9 +402,9 @@ export class PrismaFinanceiroRepository implements IFinanceiroRepository {
         totalPages: Math.ceil(total / pageSize),
       },
       summary: {
-        totalAmount: Number(summaryAggregate._sum.amount || 0),
-        totalRefunded: Number(summaryAggregate._sum.refundAmount || 0),
-        count: summaryAggregate._count.id,
+        totalAmount: confirmedSum,
+        totalRefunded: refundedSum,
+        count: allFiltered.filter((p) => p.status === PaymentStatus.APPROVED && !isPendingManualRefund(p)).length,
       },
     };
   }

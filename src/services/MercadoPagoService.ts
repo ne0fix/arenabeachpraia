@@ -63,6 +63,15 @@ export class MercadoPagoService {
         })()
 
       const description = this.buildDescription(input.description)
+      const meta = typeof input.description === 'string'
+        ? { booking_id: input.externalReference, summary: input.description }
+        : {
+            court_name: input.description.courtName,
+            date: input.description.date,
+            start_time: input.description.startTime,
+            end_time: input.description.endTime,
+            booking_id: input.externalReference,
+          }
       const result = await this.paymentClient.create({
         body: {
           transaction_amount: input.amount,
@@ -70,13 +79,7 @@ export class MercadoPagoService {
           description,
           external_reference: input.externalReference,
           payer: { email: input.payerEmail },
-          metadata: {
-            court_name: input.description.courtName,
-            date: input.description.date,
-            start_time: input.description.startTime,
-            end_time: input.description.endTime,
-            booking_id: input.externalReference,
-          },
+          metadata: meta,
           ...(notificationUrl ? { notification_url: notificationUrl } : {}),
         } as any,
         requestOptions: { idempotencyKey: input.externalReference },
@@ -92,6 +95,15 @@ export class MercadoPagoService {
   async createCardPayment(input: CreateCardInput) {
     try {
       const description = this.buildDescription(input.description)
+      const meta = typeof input.description === 'string'
+        ? { booking_id: input.externalReference, summary: input.description }
+        : {
+            court_name: input.description.courtName,
+            date: input.description.date,
+            start_time: input.description.startTime,
+            end_time: input.description.endTime,
+            booking_id: input.externalReference,
+          }
       const result = await this.paymentClient.create({
         body: {
           transaction_amount: input.amount,
@@ -102,13 +114,7 @@ export class MercadoPagoService {
           statement_descriptor: 'ARENA BEACH SERRA',
           external_reference: input.externalReference,
           payer: { email: input.payerEmail },
-          metadata: {
-            court_name: input.description.courtName,
-            date: input.description.date,
-            start_time: input.description.startTime,
-            end_time: input.description.endTime,
-            booking_id: input.externalReference,
-          },
+          metadata: meta,
         },
         requestOptions: { idempotencyKey: input.externalReference },
       })
@@ -131,9 +137,9 @@ export class MercadoPagoService {
 
   async cancelPayment(paymentId: number) {
     try {
-      const result = await this.paymentClient.update({
+      const result = await (this.paymentClient as any).update({
         id: paymentId,
-        body: { status: 'cancelled' } as any,
+        body: { status: 'cancelled' },
       })
       console.log('MP Payment cancelled:', { paymentId })
       return result

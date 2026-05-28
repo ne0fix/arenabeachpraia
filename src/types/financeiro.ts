@@ -10,6 +10,8 @@ export interface FinanceiroSummary {
     net: number;
     refunded: number;
     averageTicket: number;
+    pendingManualRefund: number;
+    pendingManualRefundCount: number;
   };
   transactions: {
     total: number;
@@ -90,6 +92,7 @@ export interface Transaction {
   gatewayStatus: string | null;
   cardLastFour: string | null;
   cardBrand: string | null;
+  pendingManualRefund?: boolean;
   booking: {
     id: string;
     date: Date;

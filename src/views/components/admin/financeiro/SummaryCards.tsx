@@ -1,7 +1,7 @@
 import { StatsCard } from "../StatsCard";
 import { FinanceiroSummary } from "@/types/financeiro";
 import { formatCurrency } from "@/core/utils/formatCurrency";
-import { TrendingUp, TrendingDown, DollarSign, Percent, AlertCircle, Receipt } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Percent, AlertCircle, Receipt, AlertTriangle } from "lucide-react";
 
 interface SummaryCardsProps {
   data?: FinanceiroSummary;
@@ -28,6 +28,20 @@ export function SummaryCards({ data, loading }: SummaryCardsProps) {
   };
 
   return (
+    <>
+      {revenue.pendingManualRefundCount > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-3 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-headline text-sm font-bold text-amber-800">
+              {revenue.pendingManualRefundCount} pagamento(s) aguardando estorno manual — {formatCurrency(revenue.pendingManualRefund)}
+            </p>
+            <p className="font-headline text-xs text-amber-700 mt-0.5">
+              Clientes pagaram após outro confirmar o mesmo horário. Estes valores NÃO são contados como receita. Processe o estorno na lista de transações abaixo.
+            </p>
+          </div>
+        </div>
+      )}
     <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
       <StatsCard
         title="Receita Bruta"
@@ -74,5 +88,6 @@ export function SummaryCards({ data, loading }: SummaryCardsProps) {
         color="warning"
       />
     </div>
+    </>
   );
 }

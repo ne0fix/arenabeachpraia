@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatCurrency } from "@/core/utils/formatCurrency";
 import { Badge } from "@/views/components/ui/Badge";
-import { Zap, CreditCard, ChevronLeft, ChevronRight, Eye, RefreshCcw } from "lucide-react";
+import { Zap, CreditCard, ChevronLeft, ChevronRight, Eye, RefreshCcw, AlertTriangle } from "lucide-react";
 import { cn } from "@/core/utils/helpers";
 
 interface TransactionTableProps {
@@ -109,7 +109,15 @@ export function TransactionTable({
                 const config = statusConfig[t.status];
 
                 return (
-                  <tr key={t.id} className="hover:bg-surface-container-low/30 transition-colors group">
+                  <tr
+                    key={t.id}
+                    className={cn(
+                      "transition-colors group",
+                      t.pendingManualRefund
+                        ? "bg-amber-50/60 hover:bg-amber-100/60"
+                        : "hover:bg-surface-container-low/30"
+                    )}
+                  >
                     <td className="px-6 py-4 text-xs font-mono text-on-surface-variant">#{t.id.slice(0, 8)}</td>
                     <td className="px-6 py-4 text-xs text-on-surface font-medium">
                       {format(new Date(t.paidAt || t.createdAt), "dd/MM HH:mm", { locale: ptBR })}
@@ -126,11 +134,18 @@ export function TransactionTable({
                     </td>
                     <td className="px-6 py-4 text-sm font-black text-on-surface">{formatCurrency(t.amount)}</td>
                     <td className="px-6 py-4">
-                      <Badge variant={config.variant}>{config.label}</Badge>
+                      <div className="flex flex-col gap-1 items-start">
+                        <Badge variant={config.variant}>{config.label}</Badge>
+                        {t.pendingManualRefund && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-headline font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                            <AlertTriangle size={10} /> Estornar manualmente
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <button 
+                        <button
                           onClick={() => onSelect(t)}
                           className="p-2 hover:bg-primary/10 text-primary rounded-lg transition-colors"
                           title="Ver detalhes"
@@ -138,10 +153,15 @@ export function TransactionTable({
                           <Eye size={18} />
                         </button>
                         {t.status === PaymentStatus.APPROVED && (
-                          <button 
+                          <button
                             onClick={() => onRefund(t.id)}
-                            className="p-2 hover:bg-red-100 text-red-600 rounded-lg transition-colors"
-                            title="Reembolsar"
+                            className={cn(
+                              "p-2 rounded-lg transition-colors",
+                              t.pendingManualRefund
+                                ? "bg-amber-600 text-white hover:bg-amber-700"
+                                : "hover:bg-red-100 text-red-600"
+                            )}
+                            title={t.pendingManualRefund ? "Estornar (pendente)" : "Reembolsar"}
                           >
                             <RefreshCcw size={18} />
                           </button>

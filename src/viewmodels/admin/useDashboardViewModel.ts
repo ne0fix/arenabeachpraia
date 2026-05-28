@@ -13,6 +13,7 @@ export interface AdminStats {
   cancelledBookings: number
   completedBookings: number
   totalRevenue: number
+  pendingManualRefundAmount: number
   refundedAmount: number
   netRevenue: number
   occupancyRate: number
@@ -48,9 +49,11 @@ export function useDashboardViewModel() {
       cancelledBookings: stats.cancelledBookings,
       cancellationRate: ((stats.cancelledBookings / total) * 100).toFixed(1) + '%',
       totalRevenue: formatCurrency(stats.totalRevenue),
+      pendingManualRefundAmount: formatCurrency(stats.pendingManualRefundAmount ?? 0),
+      hasPendingRefund: (stats.pendingManualRefundAmount ?? 0) > 0,
       refundedAmount: formatCurrency(stats.refundedAmount),
       netRevenue: formatCurrency(stats.netRevenue),
-      occupancyRate: (stats.occupancyRate ?? 0).toFixed(0) + '%',
+      occupancyRate: (stats.occupancyRate ?? 0).toFixed(1) + '%',
     }
   }, [stats])
 

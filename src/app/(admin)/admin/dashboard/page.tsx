@@ -1,6 +1,7 @@
 'use client'
 
-import { CalendarDays, TrendingUp, XCircle, BarChart3 } from 'lucide-react'
+import { CalendarDays, TrendingUp, XCircle, BarChart3, AlertTriangle } from 'lucide-react'
+import Link from 'next/link'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { StatsCard } from '@/views/components/admin/StatsCard'
@@ -46,6 +47,25 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
+
+      {vm.kpis?.hasPendingRefund && (
+        <Link
+          href="/admin/financeiro"
+          className="block bg-amber-50 border border-amber-200 rounded-2xl p-4 hover:bg-amber-100 transition-colors"
+        >
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-headline text-sm font-bold text-amber-800">
+                Estornos manuais pendentes: {vm.kpis.pendingManualRefundAmount}
+              </p>
+              <p className="font-headline text-xs text-amber-700 mt-0.5">
+                Clientes pagaram em horários já confirmados por outros. Processe o estorno no painel financeiro.
+              </p>
+            </div>
+          </div>
+        </Link>
+      )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {vm.isLoading ? (
