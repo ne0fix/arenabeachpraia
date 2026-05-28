@@ -23,14 +23,16 @@ function toMin(t: string) {
   return parseInt(t.split(':')[0]) * 60 + parseInt(t.split(':')[1])
 }
 
-// Agrupa slots selecionados em blocos contíguos (sem lacunas)
-function findSelectionRuns(selected: string[], allTimes: string[]): string[][] {
+// Agrupa slots selecionados em blocos contíguos usando tempo real (não índice)
+// Dois slots são contíguos se o próximo começa exatamente slotDuration minutos após o anterior
+function findSelectionRuns(selected: string[], allTimes: string[], slotDuration: number): string[][] {
   if (selected.length === 0) return []
   const sorted = [...selected].sort((a, b) => allTimes.indexOf(a) - allTimes.indexOf(b))
   const runs: string[][] = []
   let current = [sorted[0]]
   for (let i = 1; i < sorted.length; i++) {
-    if (allTimes.indexOf(sorted[i]) === allTimes.indexOf(sorted[i - 1]) + 1) {
+    const expectedNext = addMinutesToTime(sorted[i - 1], slotDuration)
+    if (sorted[i] === expectedNext) {
       current.push(sorted[i])
     } else {
       runs.push(current)
@@ -81,10 +83,20 @@ export function useBookingViewModel(courtId: string) {
   const allTimes = useMemo(() => (availability?.slots ?? []).map((s) => s.time), [availability])
 
   const selectionRuns = useMemo(
-    () => findSelectionRuns(selectedSlots, allTimes),
-    [selectedSlots, allTimes]
+    () => findSelectionRuns(selectedSlots, allTimes, slotDuration),
+    [selectedSlots, allTimes, slotDuration]
   )
   const isNonContiguous = selectionRuns.length > 1
+
+  // Cada bloco com startTime e endTime já calculados para exibição
+  const selectionRunsWithEnd = useMemo(
+    () => selectionRuns.map((run) => ({
+      slots: run,
+      startTime: run[0],
+      endTime: addMinutesToTime(run[run.length - 1], slotDuration),
+    })),
+    [selectionRuns, slotDuration]
+  )
 
   // Para exibição: primeiro slot do primeiro grupo, último slot do último grupo
   const sortedSelected = useMemo(
@@ -184,6 +196,7 @@ export function useBookingViewModel(courtId: string) {
     selectedDurationHours,
     selectedTotal,
     selectionRuns,
+    selectionRunsWithEnd,
     isNonContiguous,
     slotError,
     availability,

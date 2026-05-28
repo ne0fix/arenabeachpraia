@@ -1,20 +1,37 @@
 'use client'
 
+import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { ShoppingCart, Trash2, Calendar, Clock, ArrowLeft, ShoppingBag } from 'lucide-react'
+import { ShoppingCart, Trash2, Calendar, Clock, ArrowLeft, ShoppingBag, Sunrise, Sun } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { motion, AnimatePresence } from 'motion/react'
 import { Button } from '@/views/components/ui/Button'
-import { useBookingCart } from '@/lib/useBookingCart'
+import { useBookingCart, type CartItem } from '@/lib/useBookingCart'
 import { formatCurrency } from '@/core/utils/formatCurrency'
+
+function getShift(startTime: string): 'manha' | 'tarde' {
+  return parseInt(startTime.split(':')[0]) < 12 ? 'manha' : 'tarde'
+}
 
 export default function CartPage() {
   const router = useRouter()
   const cart = useBookingCart()
 
-  const handleCheckout = (index: number) => {
-    const item = cart.items[index]
+  // Agrupa itens por quadra + data para exibir manhã/tarde no mesmo card
+  const groups = useMemo(() => {
+    const map = new Map<string, CartItem[]>()
+    for (const item of cart.items) {
+      const key = `${item.courtId}|${item.date}`
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(item)
+    }
+    return Array.from(map.values()).map((items) =>
+      [...items].sort((a, b) => a.startTime.localeCompare(b.startTime))
+    )
+  }, [cart.items])
+
+  const handleCheckout = (item: CartItem) => {
     router.push(
       `/payment?courtId=${item.courtId}&date=${item.date}&startTime=${item.startTime}&endTime=${item.endTime}&cartItemId=${item.id}`
     )
@@ -38,8 +55,7 @@ export default function CartPage() {
       </header>
 
       <main className="w-full px-4 md:px-6 pb-32 md:pb-12 max-w-2xl mx-auto">
-        {cart.items.length === 0 ? (
-          /* Estado vazio */
+        {groups.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -59,69 +75,128 @@ export default function CartPage() {
             </Button>
           </motion.div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <AnimatePresence>
-              {cart.items.map((item, index) => (
-                <motion.div
-                  key={item.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20, height: 0, marginBottom: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div>
-                      <p className="font-headline text-base font-bold text-primary">{item.courtName}</p>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <Calendar className="w-3.5 h-3.5 text-on-surface-variant" />
-                        <span className="font-headline text-xs text-on-surface-variant">
-                          {format(new Date(item.date + 'T12:00:00'), "dd 'de' MMM 'de' yyyy", { locale: ptBR })}
-                        </span>
-                      </div>
+              {groups.map((groupItems) => {
+                const first = groupItems[0]
+                const groupTotal = groupItems.reduce((s, i) => s + i.totalAmount, 0)
+                const hasMultiple = groupItems.length > 1
+
+                return (
+                  <motion.div
+                    key={`${first.courtId}|${first.date}`}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20, height: 0, marginBottom: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm"
+                  >
+                    {/* Cabeçalho: quadra + data */}
+                    <div className="px-4 pt-4 pb-3 border-b border-outline-variant/15">
+                      <p className="font-headline text-base font-bold text-primary">{first.courtName}</p>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                        <Clock className="w-3.5 h-3.5 text-on-surface-variant" />
+                        <Calendar className="w-3.5 h-3.5 text-on-surface-variant flex-shrink-0" />
                         <span className="font-headline text-xs text-on-surface-variant">
-                          {item.startTime} — {item.endTime} · {item.durationHours}h
+                          {format(new Date(first.date + 'T12:00:00'), "dd 'de' MMM 'de' yyyy", { locale: ptBR })}
                         </span>
                       </div>
                     </div>
-                    <button
-                      onClick={() => cart.removeItem(item.id)}
-                      className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
-                      aria-label="Remover"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
 
-                  <div className="flex items-center justify-between pt-3 border-t border-outline-variant/20">
-                    <p className="font-headline text-xl font-bold text-primary">
-                      {formatCurrency(item.totalAmount)}
-                    </p>
-                    <Button size="sm" onClick={() => handleCheckout(index)}>
-                      Pagar este horário
-                    </Button>
-                  </div>
-                </motion.div>
-              ))}
+                    {/* Linhas de horário */}
+                    <div className="divide-y divide-outline-variant/10">
+                      {groupItems.map((item) => {
+                        const isManha = getShift(item.startTime) === 'manha'
+                        return (
+                          <div key={item.id} className="px-4 py-3 flex items-center gap-2">
+                            {/* Badge turno */}
+                            <div className={`flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg ${isManha ? 'bg-amber-100 text-amber-700' : 'bg-orange-100 text-orange-600'}`}>
+                              {isManha
+                                ? <Sunrise className="w-3 h-3 flex-shrink-0" />
+                                : <Sun className="w-3 h-3 flex-shrink-0" />
+                              }
+                              <span className="font-headline text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">
+                                {isManha ? 'Manhã' : 'Tarde'}
+                              </span>
+                            </div>
+
+                            {/* Horário — sem quebra de linha */}
+                            <div className="flex-1 flex items-center gap-1.5 min-w-0 overflow-hidden">
+                              <Clock className="w-3.5 h-3.5 text-on-surface-variant flex-shrink-0" />
+                              <span className="font-headline text-sm font-bold text-on-surface whitespace-nowrap">
+                                {item.startTime} — {item.endTime}
+                              </span>
+                              <span className="font-headline text-[10px] text-on-surface-variant whitespace-nowrap hidden sm:inline">
+                                · {item.durationHours}h
+                              </span>
+                            </div>
+
+                            {/* Valor + remover */}
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className="font-headline text-sm font-bold text-primary whitespace-nowrap">
+                                {formatCurrency(item.totalAmount)}
+                              </span>
+                              <button
+                                onClick={() => cart.removeItem(item.id)}
+                                className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                aria-label="Remover"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Rodapé do card */}
+                    <div className="px-4 py-3 border-t border-outline-variant/15 bg-surface-container/30">
+                      {hasMultiple ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex-shrink-0">
+                            <p className="font-headline text-[10px] text-on-surface-variant uppercase tracking-wider">Total</p>
+                            <p className="font-headline text-xl font-bold text-primary">{formatCurrency(groupTotal)}</p>
+                          </div>
+                          <div className="flex gap-2 flex-wrap justify-end">
+                            {groupItems.map((item) => {
+                              const isManha = getShift(item.startTime) === 'manha'
+                              return (
+                                <Button
+                                  key={item.id}
+                                  size="sm"
+                                  variant={isManha ? 'outline' : 'primary'}
+                                  onClick={() => handleCheckout(item)}
+                                >
+                                  Pagar {isManha ? 'manhã' : 'tarde'}
+                                </Button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="font-headline text-xl font-bold text-primary">{formatCurrency(groupTotal)}</p>
+                          <Button size="sm" onClick={() => handleCheckout(groupItems[0])}>
+                            Pagar este horário
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )
+              })}
             </AnimatePresence>
 
-            {/* Rodapé com total e checkout de todos */}
-            {cart.items.length > 1 && (
-              <div className="bg-surface-container rounded-2xl p-4 border border-outline-variant/20 mt-4">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="font-headline text-sm font-bold text-on-surface-variant uppercase tracking-wider">
-                    Total
-                  </span>
-                  <span className="font-headline text-2xl font-bold text-primary">
-                    {formatCurrency(cart.totalAmount)}
-                  </span>
+            {/* Total geral quando há mais de um grupo */}
+            {groups.length > 1 && (
+              <div className="bg-surface-container rounded-2xl p-4 border border-outline-variant/20">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-headline text-sm font-bold text-on-surface-variant uppercase tracking-wider">Total Geral</span>
+                  <span className="font-headline text-2xl font-bold text-primary">{formatCurrency(cart.totalAmount)}</span>
                 </div>
                 <p className="font-headline text-[11px] text-on-surface-variant text-center mb-3">
                   Cada reserva é processada individualmente.
                 </p>
-                <Button className="w-full h-12" leftIcon={<ShoppingCart className="w-4 h-4" />} onClick={() => handleCheckout(0)}>
+                <Button className="w-full h-12" leftIcon={<ShoppingCart className="w-4 h-4" />} onClick={() => handleCheckout(cart.items[0])}>
                   Pagar primeiro item
                 </Button>
               </div>

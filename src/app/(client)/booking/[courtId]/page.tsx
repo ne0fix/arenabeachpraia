@@ -35,7 +35,7 @@ export default function BookingPage({ params }: BookingPageProps) {
         <h1 className="font-headline font-bold text-lg text-primary tracking-tight truncate">Reservar Horário</h1>
       </header>
 
-      <main className="w-full px-4 md:px-6 pb-32 md:pb-12 max-w-4xl mx-auto overflow-x-hidden">
+      <main className="w-full px-4 md:px-6 pb-48 md:pb-12 max-w-4xl mx-auto [overflow-x:clip]">
         <section className="mb-6 md:mb-8">
           <div className="relative h-44 md:h-64 rounded-3xl overflow-hidden sun-shadow mb-4 md:mb-6 group">
             <CourtImageCarousel
@@ -67,8 +67,8 @@ export default function BookingPage({ params }: BookingPageProps) {
               </p>
             </div>
           </div>
-          <div className="relative -mx-4 px-4 md:mx-0 md:px-0">
-            <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 court-scrollbar snap-x">
+          <div className="relative -mx-4 md:mx-0">
+            <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 court-scrollbar snap-x px-4 md:px-0">
               {vm.days.map((day) => {
                 const isActive = format(day, 'yyyy-MM-dd') === format(vm.selectedDate, 'yyyy-MM-dd')
                 return (
@@ -172,7 +172,7 @@ export default function BookingPage({ params }: BookingPageProps) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 60 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed bottom-0 md:bottom-6 left-0 right-0 p-4 md:px-6 z-[60] bg-surface/95 backdrop-blur-lg border-t md:border-none border-outline-variant/30"
+              className="fixed bottom-0 md:bottom-6 left-0 right-0 p-4 md:px-6 z-[60] bg-surface border-t md:border-none border-outline-variant/30"
             >
               <div className="max-w-4xl mx-auto">
                 <button
@@ -207,7 +207,7 @@ export default function BookingPage({ params }: BookingPageProps) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 60 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed bottom-0 md:bottom-6 left-0 right-0 p-4 md:px-6 z-[60] bg-surface/95 backdrop-blur-lg border-t md:border-none border-outline-variant/30"
+              className="fixed bottom-0 md:bottom-6 left-0 right-0 p-4 md:px-6 z-[60] bg-surface border-t md:border-none border-outline-variant/30"
             >
               <div className="max-w-4xl mx-auto flex flex-col gap-2">
                 {/* Aviso de item adicionado */}
@@ -228,43 +228,41 @@ export default function BookingPage({ params }: BookingPageProps) {
                 {vm.selectedSlots.length > 0 && (
                   <div className="flex flex-col md:flex-row gap-3 md:gap-4">
                     <div className="bg-surface-container-lowest border border-primary/10 p-3 md:p-4 rounded-2xl shadow-lg flex-1">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="p-2 bg-secondary-container rounded-lg text-primary flex-shrink-0">
-                            <ShoppingCart className="w-5 h-5" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider">
-                              {format(vm.selectedDate, "dd 'de' MMM", { locale: ptBR })}
-                            </p>
-                            {vm.isNonContiguous ? (
-                              /* Blocos não-contíguos: lista cada bloco */
-                              <div className="space-y-0.5">
-                                {vm.selectionRuns.map((run) => (
-                                  <div key={run[0]} className="flex items-center gap-1.5">
-                                    <Clock className="w-3 h-3 text-primary flex-shrink-0" />
-                                    <p className="font-headline text-xs font-bold text-on-surface">
-                                      {run[0]} — {run[run.length - 1]}
-                                    </p>
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-1.5">
-                                <Clock className="w-3 h-3 text-primary flex-shrink-0" />
-                                <p className="font-headline text-sm font-bold text-on-surface truncate">
-                                  {vm.selectedStartTime} — {vm.selectedEndTime}
-                                </p>
-                              </div>
-                            )}
-                          </div>
+                      <div className="flex items-center gap-2">
+                        {/* Ícone */}
+                        <div className="p-2 bg-secondary-container rounded-lg text-primary flex-shrink-0 self-start">
+                          <ShoppingCart className="w-4 h-4" />
                         </div>
-                        <div className="text-right flex-shrink-0">
-                          <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider">
-                            {vm.selectedDurationHours}h · {vm.selectedSlots.length} {vm.selectedSlots.length === 1 ? 'horário' : 'horários'}
+                        {/* Data + horários */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider leading-tight">
+                            {format(vm.selectedDate, "dd 'de' MMM", { locale: ptBR })}
+                            {' · '}{vm.selectedDurationHours}h
                             {vm.isNonContiguous && ` · ${vm.selectionRuns.length} blocos`}
                           </p>
-                          <p className="font-headline text-lg md:text-xl text-primary font-bold">
+                          {vm.isNonContiguous ? (
+                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                              {vm.selectionRunsWithEnd.map((run) => (
+                                <div key={run.startTime} className="flex items-center gap-1">
+                                  <Clock className="w-2.5 h-2.5 text-primary flex-shrink-0" />
+                                  <span className="font-headline text-xs font-bold text-on-surface whitespace-nowrap">
+                                    {run.startTime}–{run.endTime}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <Clock className="w-2.5 h-2.5 text-primary flex-shrink-0" />
+                              <span className="font-headline text-sm font-bold text-on-surface whitespace-nowrap">
+                                {vm.selectedStartTime} — {vm.selectedEndTime}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {/* Preço */}
+                        <div className="flex-shrink-0 text-right self-center">
+                          <p className="font-headline text-base md:text-xl font-bold text-primary whitespace-nowrap">
                             {formatCurrency(vm.selectedTotal)}
                           </p>
                         </div>
