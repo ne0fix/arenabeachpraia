@@ -253,16 +253,19 @@ function SuccessContent() {
       )}
 
       <div className="w-full space-y-4">
-        {/* Próximo item do carrinho */}
-        {cart.items.length > 0 && (
-          <Button
-            className="w-full h-14 text-lg"
-            leftIcon={<ShoppingCart className="w-6 h-6" />}
-            onClick={() => router.push('/cart')}
-          >
-            Pagar próximo item ({cart.items.length} restante{cart.items.length !== 1 ? 's' : ''})
-          </Button>
-        )}
+        {/* Próximo item do carrinho — vai direto para o pagamento */}
+        {cart.items.length > 0 && (() => {
+          const next = cart.items[0]
+          return (
+            <Button
+              className="w-full h-14 text-lg"
+              leftIcon={<ShoppingCart className="w-6 h-6" />}
+              onClick={() => router.push(`/payment?courtId=${next.courtId}&date=${next.date}&startTime=${next.startTime}&endTime=${next.endTime}&cartItemId=${next.id}`)}
+            >
+              Pagar próxima reserva ({cart.items.length} restante{cart.items.length !== 1 ? 's' : ''})
+            </Button>
+          )
+        })()}
 
         <Button
           variant={cart.items.length > 0 ? 'outline' : 'primary'}

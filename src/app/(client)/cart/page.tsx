@@ -30,9 +30,11 @@ export default function CartPage() {
     )
   }, [cart.items])
 
-  const handleCheckout = (item: CartItem) => {
+  const handleCheckout = () => {
+    const first = cart.items[0]
+    if (!first) return
     router.push(
-      `/payment?courtId=${item.courtId}&date=${item.date}&startTime=${item.startTime}&endTime=${item.endTime}&cartItemId=${item.id}`
+      `/payment?courtId=${first.courtId}&date=${first.date}&startTime=${first.startTime}&endTime=${first.endTime}&cartItemId=${first.id}`
     )
   }
 
@@ -47,7 +49,7 @@ export default function CartPage() {
         </button>
         <h1 className="font-headline font-bold text-lg text-primary tracking-tight">Carrinho de Reservas</h1>
         {cart.totalCount > 0 && (
-          <span className="ml-auto bg-primary text-white text-xs font-bold px-2.5 py-1 rounded-full font-headline">
+          <span className="ml-auto flex-shrink-0 whitespace-nowrap bg-primary text-white text-xs font-bold px-2.5 py-1 rounded-full font-headline">
             {cart.totalCount} {cart.totalCount === 1 ? 'item' : 'itens'}
           </span>
         )}
@@ -78,7 +80,6 @@ export default function CartPage() {
             <AnimatePresence>
               {groups.map((groupItems) => {
                 const first = groupItems[0]
-                const groupTotal = groupItems.reduce((s, i) => s + i.totalAmount, 0)
 
                 return (
                   <motion.div
@@ -100,7 +101,7 @@ export default function CartPage() {
                       </div>
                     </div>
 
-                    {/* Linhas de horário — layout empilhado para evitar sobreposição */}
+                    {/* Linhas de horário */}
                     <div className="divide-y divide-outline-variant/10">
                       {groupItems.map((item) => {
                         const isManha = getShift(item.startTime) === 'manha'
@@ -145,31 +146,34 @@ export default function CartPage() {
                         )
                       })}
                     </div>
-
-                    {/* Rodapé: total + botão único */}
-                    <div className="px-4 py-3 border-t border-outline-variant/15 bg-surface-container/30 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="font-headline text-[10px] text-on-surface-variant uppercase tracking-wider">Total</p>
-                        <p className="font-headline text-xl font-bold text-primary">{formatCurrency(groupTotal)}</p>
-                      </div>
-                      <Button onClick={() => handleCheckout(groupItems[0])}>
-                        Pagar Reserva
-                      </Button>
-                    </div>
                   </motion.div>
                 )
               })}
             </AnimatePresence>
 
-            {/* Total geral quando há múltiplos grupos */}
-            {groups.length > 1 && (
-              <div className="bg-surface-container rounded-2xl p-4 border border-outline-variant/20">
-                <div className="flex items-center justify-between">
-                  <span className="font-headline text-sm font-bold text-on-surface-variant uppercase tracking-wider">Total Geral</span>
-                  <span className="font-headline text-2xl font-bold text-primary">{formatCurrency(cart.totalAmount)}</span>
+            {/* Rodapé global: total + botão único */}
+            <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="font-headline text-[10px] text-on-surface-variant uppercase tracking-wider">
+                    Total · {cart.totalCount} {cart.totalCount === 1 ? 'reserva' : 'reservas'}
+                  </p>
+                  <p className="font-headline text-2xl font-bold text-primary">{formatCurrency(cart.totalAmount)}</p>
                 </div>
               </div>
-            )}
+              <Button
+                className="w-full h-12"
+                leftIcon={<ShoppingCart className="w-4 h-4" />}
+                onClick={handleCheckout}
+              >
+                Pagar Reserva{cart.totalCount > 1 ? 's' : ''}
+              </Button>
+              {cart.totalCount > 1 && (
+                <p className="font-headline text-[10px] text-on-surface-variant text-center mt-2">
+                  As reservas são processadas individualmente em sequência.
+                </p>
+              )}
+            </div>
           </div>
         )}
       </main>

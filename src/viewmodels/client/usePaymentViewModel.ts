@@ -27,6 +27,7 @@ export function usePaymentViewModel() {
   const date = params.get('date') ?? ''
   const startTime = params.get('startTime') ?? ''
   const endTime = params.get('endTime') ?? ''
+  const cartItemId = params.get('cartItemId') ?? ''
 
   const { mutateAsync: createBooking, isPending } = useMutation({
     mutationFn: async (data: { paymentToken?: string; cardBrand?: string }) => {
@@ -53,11 +54,13 @@ export function usePaymentViewModel() {
         setPixQrCodeBase64(data.pixQrCodeBase64 || null)
         // Redireciona para booking-success que faz polling automático.
         // Pequeno delay para o QR aparecer brevemente antes de redirecionar.
+        const cartParam = cartItemId ? `&cartItemId=${cartItemId}` : ''
         setTimeout(() => {
-          router.push(`/booking-success?bookingId=${data.booking.id}`)
+          router.push(`/booking-success?bookingId=${data.booking.id}${cartParam}`)
         }, 1500)
       } else {
-        router.push(`/booking-success?bookingId=${data.booking.id}`)
+        const cartParam = cartItemId ? `&cartItemId=${cartItemId}` : ''
+        router.push(`/booking-success?bookingId=${data.booking.id}${cartParam}`)
       }
     },
     onError: () => {
