@@ -157,26 +157,23 @@ export async function POST(req: Request) {
           })
 
           if (conflict) {
+            // Pagamento aprovado MAS slot já confirmado por outro cliente → estorno manual
             await prisma.booking.update({
               where: { id: booking.id },
-              data: { status: 'CANCELLED', cancelReason: 'SLOT_CONFLICT', cancelledAt: new Date(), cancelledBy: 'system' },
+              data: { status: 'CANCELLED', cancelReason: 'SLOT_TAKEN_BY_OTHER', cancelledAt: new Date(), cancelledBy: 'system' },
             })
+            // Mantém payment APPROVED para o admin ver no painel financeiro e estornar manualmente
             await prisma.payment.update({
               where: { id: payment.id },
-              data: { status: 'CANCELLED', gatewayStatus: mpStatus, gatewayId: String(resourceId) },
+              data: {
+                status: 'APPROVED',
+                paidAt: new Date(),
+                gatewayStatus: mpStatus,
+                gatewayId: String(resourceId),
+                refundReason: 'PENDING_MANUAL_REFUND: outro cliente confirmou primeiro',
+              },
             })
-            const refundAmt = Number(payment.amount)
-            try {
-              await mp.refundPayment(Number(resourceId), refundAmt)
-              await prisma.payment.update({
-                where: { id: payment.id },
-                data: { status: 'REFUNDED', refundedAt: new Date(), refundReason: 'Horário já reservado por outro cliente', refundAmount: payment.amount },
-              })
-              totalRefunded += refundAmt
-              console.log('Webhook: estorno por conflito, bookingId=', booking.id)
-            } catch (err) {
-              console.error('Webhook: falha no estorno por conflito:', err)
-            }
+            console.log('Webhook: CONFLITO — pagamento aprovado, marcado para estorno manual. bookingId=', booking.id)
           } else {
             await prisma.payment.update({
               where: { id: payment.id },

@@ -59,7 +59,8 @@ function SuccessContent() {
   }
 
   // ── Cancelado por conflito de horário ─────────────────────────────────────
-  if (booking.status === 'CANCELLED' && booking.cancelReason === 'SLOT_CONFLICT') {
+  if (booking.status === 'CANCELLED' && (booking.cancelReason === 'SLOT_CONFLICT' || booking.cancelReason === 'SLOT_TAKEN_BY_OTHER')) {
+    const isManualRefund = booking.cancelReason === 'SLOT_TAKEN_BY_OTHER'
     return (
       <main className="flex-1 w-full max-w-md mx-auto px-6 flex flex-col items-center justify-center pt-12 pb-24 md:py-12">
         <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="relative mb-8">
@@ -72,17 +73,28 @@ function SuccessContent() {
           <h1 className="font-headline text-2xl text-red-600 font-bold mb-3">
             Horário não disponível
           </h1>
-          <p className="text-on-surface-variant text-sm leading-relaxed max-w-[300px] mx-auto">
-            Outro cliente confirmou este horário ao mesmo tempo que você. O seu pagamento será
-            <strong> estornado automaticamente</strong> em até 5 dias úteis.
+          <p className="text-on-surface-variant text-sm leading-relaxed max-w-[320px] mx-auto">
+            {isManualRefund ? (
+              <>
+                Outro cliente confirmou o pagamento deste horário antes do seu. O valor pago será
+                <strong> estornado pela nossa equipe</strong> em até 2 dias úteis.
+              </>
+            ) : (
+              <>
+                Outro cliente confirmou este horário ao mesmo tempo que você. O seu pagamento será
+                <strong> estornado automaticamente</strong> em até 5 dias úteis.
+              </>
+            )}
           </p>
         </div>
 
         <div className="w-full bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-8 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
           <p className="font-headline text-xs text-amber-800 leading-relaxed">
-            Escolha outro horário disponível para completar sua reserva.
-            Se o estorno não aparecer em 5 dias úteis, entre em contato com nosso suporte.
+            {isManualRefund
+              ? <>Você receberá uma notificação assim que o estorno for processado. Em caso de dúvidas, entre em contato com nosso suporte.</>
+              : <>Escolha outro horário disponível para completar sua reserva. Se o estorno não aparecer em 5 dias úteis, entre em contato com nosso suporte.</>
+            }
           </p>
         </div>
 

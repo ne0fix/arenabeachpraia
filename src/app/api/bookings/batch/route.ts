@@ -44,7 +44,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: 'Uma ou mais quadras não encontradas' }, { status: 404 })
   }
 
-  // Verificar disponibilidade de todos os slots antes de criar qualquer booking
+  // Verificar disponibilidade: apenas CONFIRMED bloqueia (otimista — first-paid-wins)
   for (const item of items) {
     const conflict = await prisma.booking.findFirst({
       where: {

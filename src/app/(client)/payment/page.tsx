@@ -2,7 +2,7 @@
 
 import { Suspense } from 'react'
 import Script from 'next/script'
-import { QrCode, CreditCard, Lock, Copy, Check, Smartphone, ScanLine, BadgeCheck, ChevronRight } from 'lucide-react'
+import { QrCode, CreditCard, Lock, Copy, Check, Smartphone, ScanLine, BadgeCheck, ChevronRight, AlertTriangle } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import Image from 'next/image'
 import { Button } from '@/views/components/ui/Button'
@@ -23,12 +23,21 @@ function PaymentContent() {
       <Script src="https://sdk.mercadopago.com/js/v2" strategy="beforeInteractive" />
 
       {/* Cabeçalho */}
-      <section className="mb-6">
+      <section className="mb-4">
         <h2 className="font-headline text-2xl text-on-surface font-bold mb-1">Pagamento</h2>
         <p className="font-headline text-sm text-on-surface-variant">
           Escolha como deseja pagar sua reserva.
         </p>
       </section>
+
+      {/* Aviso de garantia condicionada à confirmação */}
+      <div className="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
+        <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+        <p className="font-headline text-[11px] text-amber-800 leading-relaxed">
+          O horário só é <strong>garantido após a confirmação do pagamento</strong>. Se outro
+          cliente concluir o pagamento antes, seu valor será estornado.
+        </p>
+      </div>
 
       {/* Tabs de método */}
       <div className="flex gap-2 mb-6 bg-surface-container rounded-2xl p-1.5 border border-outline-variant/20">

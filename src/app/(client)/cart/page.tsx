@@ -1,8 +1,8 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ShoppingCart, Trash2, Calendar, Clock, ArrowLeft, ShoppingBag, Sunrise, Sun } from 'lucide-react'
+import { ShoppingCart, Trash2, Calendar, Clock, ArrowLeft, ShoppingBag, Sunrise, Sun, AlertTriangle } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { motion, AnimatePresence } from 'motion/react'
@@ -17,6 +17,9 @@ function getShift(startTime: string): 'manha' | 'tarde' {
 export default function CartPage() {
   const router = useRouter()
   const cart = useBookingCart()
+  const [unavailableInfo, setUnavailableInfo] = useState<{ items: CartItem[] } | null>(null)
+  const itemsRef = useRef(cart.items)
+  itemsRef.current = cart.items
 
   const groups = useMemo(() => {
     const map = new Map<string, CartItem[]>()
@@ -29,6 +32,49 @@ export default function CartPage() {
       [...items].sort((a, b) => a.startTime.localeCompare(b.startTime))
     )
   }, [cart.items])
+
+  // Polling: checa disponibilidade dos itens do carrinho a cada 15s
+  useEffect(() => {
+    let cancelled = false
+
+    const check = async () => {
+      const current = itemsRef.current
+      if (current.length === 0) return
+      try {
+        const res = await fetch('/api/cart/check-availability', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: current.map(i => ({
+              cartItemId: i.id,
+              courtId: i.courtId,
+              date: i.date,
+              startTime: i.startTime,
+              endTime: i.endTime,
+            })),
+          }),
+        })
+        if (!res.ok || cancelled) return
+        const data = await res.json() as { unavailable: string[] }
+        if (data.unavailable.length > 0) {
+          const removed = current.filter(i => data.unavailable.includes(i.id))
+          // Remove os itens indisponíveis do carrinho
+          for (const id of data.unavailable) cart.removeItem(id)
+          setUnavailableInfo({ items: removed })
+        }
+      } catch (e) {
+        console.error('Erro ao verificar disponibilidade:', e)
+      }
+    }
+
+    check()
+    const interval = setInterval(check, 15000)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleCheckout = () => {
     if (!cart.items.length) return
@@ -79,6 +125,15 @@ export default function CartPage() {
           </motion.div>
         ) : (
           <div className="space-y-4">
+            {/* Aviso de pagamento garantido somente após confirmação */}
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="font-headline text-[11px] text-amber-800 leading-relaxed">
+                O horário só fica reservado para você após a <strong>confirmação do pagamento</strong>.
+                Caso outro cliente conclua o pagamento antes, seu valor será estornado.
+              </p>
+            </div>
+
             <AnimatePresence>
               {groups.map((groupItems) => {
                 const first = groupItems[0]
@@ -109,7 +164,6 @@ export default function CartPage() {
                         const isManha = getShift(item.startTime) === 'manha'
                         return (
                           <div key={item.id} className="px-4 py-3 flex items-center justify-between gap-3">
-                            {/* Esquerda: badge + horário empilhados */}
                             <div className="flex flex-col gap-1 min-w-0">
                               <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md self-start flex-shrink-0 ${isManha ? 'bg-amber-100 text-amber-700' : 'bg-orange-100 text-orange-600'}`}>
                                 {isManha
@@ -131,7 +185,6 @@ export default function CartPage() {
                               </div>
                             </div>
 
-                            {/* Direita: valor + remover */}
                             <div className="flex items-center gap-2 flex-shrink-0">
                               <span className="font-headline text-sm font-bold text-primary whitespace-nowrap">
                                 {formatCurrency(item.totalAmount)}
@@ -170,15 +223,59 @@ export default function CartPage() {
               >
                 Pagar Reserva{cart.totalCount > 1 ? 's' : ''}
               </Button>
-              {cart.totalCount > 1 && (
-                <p className="font-headline text-[10px] text-on-surface-variant text-center mt-2">
-                  As reservas são processadas individualmente em sequência.
-                </p>
-              )}
             </div>
           </div>
         )}
       </main>
+
+      {/* Modal de alerta — algum item ficou indisponível */}
+      <AnimatePresence>
+        {unavailableInfo && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/60 flex items-end md:items-center justify-center p-4"
+            onClick={() => setUnavailableInfo(null)}
+          >
+            <motion.div
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 50, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="bg-surface max-w-md w-full rounded-3xl p-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex flex-col items-center text-center">
+                <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mb-3">
+                  <AlertTriangle className="w-7 h-7 text-red-600" />
+                </div>
+                <h2 className="font-headline text-lg font-bold text-on-surface mb-2">
+                  {unavailableInfo.items.length === 1 ? 'Horário indisponível' : 'Horários indisponíveis'}
+                </h2>
+                <p className="font-headline text-sm text-on-surface-variant mb-4 leading-relaxed">
+                  Outro cliente confirmou o pagamento antes. {unavailableInfo.items.length === 1 ? 'O horário abaixo foi removido' : 'Os horários abaixo foram removidos'} do seu carrinho:
+                </p>
+                <div className="w-full bg-surface-container rounded-xl p-3 mb-4 space-y-1.5">
+                  {unavailableInfo.items.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between gap-2 text-left">
+                      <div className="min-w-0">
+                        <p className="font-headline text-xs font-bold text-on-surface truncate">{item.courtName}</p>
+                        <p className="font-headline text-[10px] text-on-surface-variant">
+                          {format(new Date(item.date + 'T12:00:00'), "dd 'de' MMM", { locale: ptBR })} · {item.startTime} — {item.endTime}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <Button className="w-full h-11" onClick={() => setUnavailableInfo(null)}>
+                  Entendi
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   )
 }
