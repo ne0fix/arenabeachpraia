@@ -4,6 +4,14 @@ import { prisma } from '@/infrastructure/database/prisma'
 import { format } from 'date-fns'
 import { formatCurrency } from '@/core/utils/formatCurrency'
 
+const PENDING_REFUND_FLAG = 'PENDING_MANUAL_REFUND'
+
+function isConfirmedRevenue(payment: { status: string; refundReason: string | null } | null | undefined): boolean {
+  if (!payment) return false
+  if (payment.status !== 'APPROVED') return false
+  return !(payment.refundReason?.startsWith(PENDING_REFUND_FLAG) ?? false)
+}
+
 export async function GET(req: Request) {
   const session = await auth()
   if (!session?.user || !['MANAGER', 'ADMIN'].includes(session.user.role)) {
@@ -27,24 +35,26 @@ export async function GET(req: Request) {
     include: {
       court: { select: { name: true, location: true } },
       user: { select: { name: true, email: true } },
-      payment: { select: { method: true, status: true, amount: true, refundAmount: true } },
+      payment: { select: { method: true, status: true, amount: true, refundAmount: true, refundReason: true } },
     },
     orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
   })
 
   if (outputFormat === 'csv') {
-    const header = 'Data,Quadra,Cliente,Horário,Valor,Status,Pagamento'
-    const rows = bookings.map((b) =>
-      [
+    const header = 'Data,Quadra,Cliente,Horário,Valor,Status,Pagamento,Observação'
+    const rows = bookings.map((b) => {
+      const isPendingRefund = b.payment?.refundReason?.startsWith(PENDING_REFUND_FLAG) ?? false
+      return [
         format(new Date(b.date), 'dd/MM/yyyy'),
         b.court.name,
         b.user.name,
         b.startTime,
-        formatCurrency(Number(b.totalValue)),
+        formatCurrency(Number(b.payment?.amount ?? b.totalValue)),
         b.status,
         b.payment?.method ?? '—',
+        isPendingRefund ? 'Aguardando estorno manual' : '',
       ].join(',')
-    )
+    })
     const csv = [header, ...rows].join('\n')
     return new Response(csv, {
       headers: {
@@ -54,9 +64,14 @@ export async function GET(req: Request) {
     })
   }
 
+  // Receita real: apenas APPROVED que não estão aguardando estorno manual
   const totalRevenue = bookings
-    .filter((b) => b.payment?.status === 'APPROVED')
-    .reduce((sum, b) => sum + Number(b.totalValue), 0)
+    .filter((b) => isConfirmedRevenue(b.payment))
+    .reduce((sum, b) => sum + Number(b.payment!.amount), 0)
+
+  const pendingManualRefundAmount = bookings
+    .filter((b) => b.payment?.status === 'APPROVED' && (b.payment?.refundReason?.startsWith(PENDING_REFUND_FLAG) ?? false))
+    .reduce((sum, b) => sum + Number(b.payment!.amount), 0)
 
   const refundedAmount = bookings
     .filter((b) => ['REFUNDED', 'PARTIAL_REFUND'].includes(b.payment?.status ?? ''))
@@ -66,7 +81,7 @@ export async function GET(req: Request) {
   bookings.forEach((b) => {
     const d = format(new Date(b.date), 'dd/MM')
     if (!dayMap[d]) dayMap[d] = { label: d, revenue: 0, refunds: 0 }
-    if (b.payment?.status === 'APPROVED') dayMap[d].revenue += Number(b.totalValue)
+    if (isConfirmedRevenue(b.payment)) dayMap[d].revenue += Number(b.payment!.amount)
     if (['REFUNDED', 'PARTIAL_REFUND'].includes(b.payment?.status ?? '')) {
       dayMap[d].refunds += Number(b.payment?.refundAmount ?? 0)
     }
@@ -79,6 +94,7 @@ export async function GET(req: Request) {
       confirmed: bookings.filter((b) => b.status === 'CONFIRMED').length,
       cancelled: bookings.filter((b) => b.status === 'CANCELLED').length,
       totalRevenue,
+      pendingManualRefundAmount,
       refundedAmount,
       netRevenue: totalRevenue - refundedAmount,
     },

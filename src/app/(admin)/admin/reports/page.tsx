@@ -71,12 +71,27 @@ export default function AdminReportsPage() {
       </div>
 
       {summary && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatsCard title="Total de Agendamentos" value={summary.total} icon={<CalendarDays className="w-5 h-5" />} color="primary" />
-          <StatsCard title="Receita Bruta" value={formatCurrency(summary.totalRevenue)} icon={<TrendingUp className="w-5 h-5" />} color="success" />
-          <StatsCard title="Estornos" value={formatCurrency(summary.refundedAmount)} icon={<TrendingDown className="w-5 h-5" />} color="danger" />
-          <StatsCard title="Receita Líquida" value={formatCurrency(summary.netRevenue)} icon={<DollarSign className="w-5 h-5" />} color="primary" />
-        </div>
+        <>
+          {summary.pendingManualRefundAmount > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+              <TrendingDown className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-headline text-sm font-bold text-amber-800">
+                  Aguardando estorno manual: {formatCurrency(summary.pendingManualRefundAmount)}
+                </p>
+                <p className="font-headline text-xs text-amber-700 mt-0.5">
+                  Estes valores não são contados como receita confirmada. Processe os estornos no painel financeiro.
+                </p>
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatsCard title="Total de Agendamentos" value={summary.total} icon={<CalendarDays className="w-5 h-5" />} color="primary" />
+            <StatsCard title="Receita Bruta" value={formatCurrency(summary.totalRevenue)} icon={<TrendingUp className="w-5 h-5" />} color="success" />
+            <StatsCard title="Estornos" value={formatCurrency(summary.refundedAmount)} icon={<TrendingDown className="w-5 h-5" />} color="danger" />
+            <StatsCard title="Receita Líquida" value={formatCurrency(summary.netRevenue)} icon={<DollarSign className="w-5 h-5" />} color="primary" />
+          </div>
+        </>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

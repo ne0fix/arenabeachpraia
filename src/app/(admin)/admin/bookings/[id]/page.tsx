@@ -162,12 +162,37 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      {booking.cancelReason && (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
-          <p className="font-headline text-xs text-red-600 font-bold uppercase mb-1">Motivo do Cancelamento</p>
-          <p className="text-sm text-red-700">{booking.cancelReason}</p>
-        </div>
-      )}
+      {booking.cancelReason && (() => {
+        const isPendingManualRefund = booking.cancelReason === 'SLOT_TAKEN_BY_OTHER'
+        const reasonLabel: Record<string, string> = {
+          SLOT_CONFLICT: 'Conflito de horário (estorno automático)',
+          SLOT_TAKEN_BY_OTHER: 'Slot tomado por outro cliente — ESTORNO MANUAL PENDENTE',
+          PAYMENT_FAILED: 'Falha no pagamento',
+          PIX_EXPIRED: 'PIX expirou sem pagamento',
+          PAYMENT_CANCELLED: 'Pagamento cancelado',
+          REFUNDED: 'Cancelado após estorno',
+        }
+        const display = reasonLabel[booking.cancelReason] ?? booking.cancelReason
+        return (
+          <div className={isPendingManualRefund
+            ? "bg-amber-50 border-2 border-amber-300 rounded-2xl p-4"
+            : "bg-red-50 border border-red-200 rounded-2xl p-4"
+          }>
+            <p className={isPendingManualRefund
+              ? "font-headline text-xs text-amber-700 font-bold uppercase mb-1"
+              : "font-headline text-xs text-red-600 font-bold uppercase mb-1"
+            }>Motivo do Cancelamento</p>
+            <p className={isPendingManualRefund ? "text-sm text-amber-800 font-bold" : "text-sm text-red-700"}>
+              {display}
+            </p>
+            {isPendingManualRefund && booking.payment?.status === 'APPROVED' && (
+              <p className="text-xs text-amber-700 mt-2">
+                Cliente pagou após outro confirmar o slot. Use o botão Estorno para processar o reembolso no MercadoPago.
+              </p>
+            )}
+          </div>
+        )
+      })()}
 
       {showCancel && (
         <CancellationModal booking={booking} open={showCancel} onClose={() => setShowCancel(false)} />

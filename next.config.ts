@@ -19,6 +19,22 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'arenabeachserra.vercel.app' }],
+        destination: 'https://arenabeachserra.com.br/:path*',
+        permanent: true,
+      },
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'www.arenabeachserra.com.br' }],
+        destination: 'https://arenabeachserra.com.br/:path*',
+        permanent: true,
+      },
+    ]
+  },
 }
 
 export default nextConfig

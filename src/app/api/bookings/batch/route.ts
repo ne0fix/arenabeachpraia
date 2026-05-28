@@ -149,10 +149,34 @@ export async function POST(req: Request) {
 
   const isApproved = ['approved', 'processed', 'accredited'].includes(gatewayStatus)
 
+  // Se cartão aprovou imediatamente, checa conflito de cada slot antes de confirmar
+  // (entre criar PENDING e processar, outro cliente pode ter confirmado um slot)
+  const conflictedIds = new Set<string>()
+  if (isApproved) {
+    for (const booking of bookings) {
+      const conflict = await prisma.booking.findFirst({
+        where: {
+          id: { not: booking.id },
+          courtId: booking.courtId,
+          date: booking.date,
+          status: 'CONFIRMED',
+          OR: [
+            { startTime: { gte: booking.startTime, lt: booking.endTime } },
+            { endTime: { gt: booking.startTime, lte: booking.endTime } },
+            { startTime: { lte: booking.startTime }, endTime: { gte: booking.endTime } },
+          ],
+        },
+        select: { id: true },
+      })
+      if (conflict) conflictedIds.add(booking.id)
+    }
+  }
+
   // Criar registros de pagamento — todos com o mesmo gatewayId
   await prisma.$transaction(
-    bookings.map((booking, idx) =>
-      prisma.payment.create({
+    bookings.map((booking, idx) => {
+      const isConflict = conflictedIds.has(booking.id)
+      return prisma.payment.create({
         data: {
           bookingId: booking.id,
           method: paymentMethod,
@@ -172,18 +196,37 @@ export async function POST(req: Request) {
           refundedBy: null,
           refundAmount: null,
           refundGatewayId: null,
-          refundReason: null,
+          // Flag para estorno manual quando outro cliente confirmou o slot primeiro
+          refundReason: isApproved && isConflict
+            ? 'PENDING_MANUAL_REFUND: outro cliente confirmou primeiro'
+            : null,
         },
       })
-    )
+    })
   )
 
-  // Se cartão aprovado imediatamente, confirma todos
+  // Se cartão aprovado: confirma apenas os bookings sem conflito;
+  // os conflitados ficam CANCELLED com SLOT_TAKEN_BY_OTHER
   if (isApproved) {
-    await prisma.booking.updateMany({
-      where: { id: { in: bookings.map(b => b.id) } },
-      data: { status: 'CONFIRMED' },
-    })
+    const confirmableIds = bookings.filter(b => !conflictedIds.has(b.id)).map(b => b.id)
+    if (confirmableIds.length > 0) {
+      await prisma.booking.updateMany({
+        where: { id: { in: confirmableIds } },
+        data: { status: 'CONFIRMED' },
+      })
+    }
+    if (conflictedIds.size > 0) {
+      await prisma.booking.updateMany({
+        where: { id: { in: Array.from(conflictedIds) } },
+        data: {
+          status: 'CANCELLED',
+          cancelReason: 'SLOT_TAKEN_BY_OTHER',
+          cancelledAt: new Date(),
+          cancelledBy: 'system',
+        },
+      })
+      console.log(`Batch: ${conflictedIds.size} slot(s) já tomados — marcados para estorno manual`)
+    }
   }
 
   // Notifica admin em tempo real
