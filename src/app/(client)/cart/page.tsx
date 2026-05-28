@@ -18,7 +18,6 @@ export default function CartPage() {
   const router = useRouter()
   const cart = useBookingCart()
 
-  // Agrupa itens por quadra + data para exibir manhã/tarde no mesmo card
   const groups = useMemo(() => {
     const map = new Map<string, CartItem[]>()
     for (const item of cart.items) {
@@ -80,7 +79,6 @@ export default function CartPage() {
               {groups.map((groupItems) => {
                 const first = groupItems[0]
                 const groupTotal = groupItems.reduce((s, i) => s + i.totalAmount, 0)
-                const hasMultiple = groupItems.length > 1
 
                 return (
                   <motion.div
@@ -102,35 +100,35 @@ export default function CartPage() {
                       </div>
                     </div>
 
-                    {/* Linhas de horário */}
+                    {/* Linhas de horário — layout empilhado para evitar sobreposição */}
                     <div className="divide-y divide-outline-variant/10">
                       {groupItems.map((item) => {
                         const isManha = getShift(item.startTime) === 'manha'
                         return (
-                          <div key={item.id} className="px-4 py-3 flex items-center gap-2">
-                            {/* Badge turno */}
-                            <div className={`flex-shrink-0 flex items-center gap-1 px-2 py-1 rounded-lg ${isManha ? 'bg-amber-100 text-amber-700' : 'bg-orange-100 text-orange-600'}`}>
-                              {isManha
-                                ? <Sunrise className="w-3 h-3 flex-shrink-0" />
-                                : <Sun className="w-3 h-3 flex-shrink-0" />
-                              }
-                              <span className="font-headline text-[10px] font-bold uppercase tracking-wide whitespace-nowrap">
-                                {isManha ? 'Manhã' : 'Tarde'}
-                              </span>
+                          <div key={item.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                            {/* Esquerda: badge + horário empilhados */}
+                            <div className="flex flex-col gap-1 min-w-0">
+                              <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md self-start flex-shrink-0 ${isManha ? 'bg-amber-100 text-amber-700' : 'bg-orange-100 text-orange-600'}`}>
+                                {isManha
+                                  ? <Sunrise className="w-3 h-3 flex-shrink-0" />
+                                  : <Sun className="w-3 h-3 flex-shrink-0" />
+                                }
+                                <span className="font-headline text-[10px] font-bold uppercase tracking-wide">
+                                  {isManha ? 'Manhã' : 'Tarde'}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5 text-on-surface-variant flex-shrink-0" />
+                                <span className="font-headline text-sm font-bold text-on-surface">
+                                  {item.startTime} — {item.endTime}
+                                </span>
+                                <span className="font-headline text-[10px] text-on-surface-variant">
+                                  · {item.durationHours}h
+                                </span>
+                              </div>
                             </div>
 
-                            {/* Horário — sem quebra de linha */}
-                            <div className="flex-1 flex items-center gap-1.5 min-w-0 overflow-hidden">
-                              <Clock className="w-3.5 h-3.5 text-on-surface-variant flex-shrink-0" />
-                              <span className="font-headline text-sm font-bold text-on-surface whitespace-nowrap">
-                                {item.startTime} — {item.endTime}
-                              </span>
-                              <span className="font-headline text-[10px] text-on-surface-variant whitespace-nowrap hidden sm:inline">
-                                · {item.durationHours}h
-                              </span>
-                            </div>
-
-                            {/* Valor + remover */}
+                            {/* Direita: valor + remover */}
                             <div className="flex items-center gap-2 flex-shrink-0">
                               <span className="font-headline text-sm font-bold text-primary whitespace-nowrap">
                                 {formatCurrency(item.totalAmount)}
@@ -148,57 +146,28 @@ export default function CartPage() {
                       })}
                     </div>
 
-                    {/* Rodapé do card */}
-                    <div className="px-4 py-3 border-t border-outline-variant/15 bg-surface-container/30">
-                      {hasMultiple ? (
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex-shrink-0">
-                            <p className="font-headline text-[10px] text-on-surface-variant uppercase tracking-wider">Total</p>
-                            <p className="font-headline text-xl font-bold text-primary">{formatCurrency(groupTotal)}</p>
-                          </div>
-                          <div className="flex gap-2 flex-wrap justify-end">
-                            {groupItems.map((item) => {
-                              const isManha = getShift(item.startTime) === 'manha'
-                              return (
-                                <Button
-                                  key={item.id}
-                                  size="sm"
-                                  variant={isManha ? 'outline' : 'primary'}
-                                  onClick={() => handleCheckout(item)}
-                                >
-                                  Pagar {isManha ? 'manhã' : 'tarde'}
-                                </Button>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="font-headline text-xl font-bold text-primary">{formatCurrency(groupTotal)}</p>
-                          <Button size="sm" onClick={() => handleCheckout(groupItems[0])}>
-                            Pagar este horário
-                          </Button>
-                        </div>
-                      )}
+                    {/* Rodapé: total + botão único */}
+                    <div className="px-4 py-3 border-t border-outline-variant/15 bg-surface-container/30 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-headline text-[10px] text-on-surface-variant uppercase tracking-wider">Total</p>
+                        <p className="font-headline text-xl font-bold text-primary">{formatCurrency(groupTotal)}</p>
+                      </div>
+                      <Button onClick={() => handleCheckout(groupItems[0])}>
+                        Pagar Reserva
+                      </Button>
                     </div>
                   </motion.div>
                 )
               })}
             </AnimatePresence>
 
-            {/* Total geral quando há mais de um grupo */}
+            {/* Total geral quando há múltiplos grupos */}
             {groups.length > 1 && (
               <div className="bg-surface-container rounded-2xl p-4 border border-outline-variant/20">
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between">
                   <span className="font-headline text-sm font-bold text-on-surface-variant uppercase tracking-wider">Total Geral</span>
                   <span className="font-headline text-2xl font-bold text-primary">{formatCurrency(cart.totalAmount)}</span>
                 </div>
-                <p className="font-headline text-[11px] text-on-surface-variant text-center mb-3">
-                  Cada reserva é processada individualmente.
-                </p>
-                <Button className="w-full h-12" leftIcon={<ShoppingCart className="w-4 h-4" />} onClick={() => handleCheckout(cart.items[0])}>
-                  Pagar primeiro item
-                </Button>
               </div>
             )}
           </div>
