@@ -226,6 +226,7 @@ function ClientModal({
                     type="email"
                     value={form.email}
                     onChange={e => setForm(f => f ? { ...f, email: e.target.value } : f)}
+                    autoComplete="off"
                     className="w-full bg-surface-container border border-outline-variant/40 rounded-xl px-3 py-2.5 font-headline text-sm text-on-surface focus:outline-none focus:border-primary/50 transition-colors"
                   />
                 </div>
@@ -277,6 +278,7 @@ function ClientModal({
                     value={form.password}
                     onChange={e => setForm(f => f ? { ...f, password: e.target.value } : f)}
                     placeholder="Deixe em branco para não alterar"
+                    autoComplete="new-password"
                     className="w-full bg-surface-container border border-outline-variant/40 rounded-xl px-3 py-2.5 pr-10 font-headline text-sm text-on-surface focus:outline-none focus:border-primary/50 transition-colors placeholder:text-on-surface-variant/40"
                   />
                   <button
