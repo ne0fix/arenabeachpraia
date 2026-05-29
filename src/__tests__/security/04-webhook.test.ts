@@ -70,7 +70,7 @@ describe('04 – Webhook: acessibilidade sem autenticação', () => {
   })
 })
 
-describe('04 – Webhook: validação de assinatura HMAC', () => {
+describe('04 – Webhook: assinatura HMAC é opcional e não-bloqueante', () => {
   beforeEach(() => {
     mockPrisma.siteSettings.findUnique.mockResolvedValue({
       mpWebhookSecret: WEBHOOK_SECRET,
@@ -78,7 +78,11 @@ describe('04 – Webhook: validação de assinatura HMAC', () => {
     } as any)
   })
 
-  it('HMAC inválido retorna 401 (rejeita processamento)', async () => {
+  // A validação HMAC NÃO deve bloquear: o MP nem sempre envia x-signature e o
+  // formato/secret podem divergir. A autenticidade real vem de getPayment (access
+  // token secreto). Rejeitar com 401 impedia a confirmação de pagamentos legítimos.
+
+  it('HMAC inválido NÃO rejeita — responde 200 e segue para getPayment', async () => {
     const { POST } = await import('@/app/api/payments/webhook/route')
     const res = await POST(
       makeWebhookRequest(
@@ -86,19 +90,16 @@ describe('04 – Webhook: validação de assinatura HMAC', () => {
         'ts=1234567890,v1=assinatura_completamente_invalida'
       )
     )
-    expect(res.status).toBe(401)
-    // Nenhum pagamento deve ter sido processado
-    expect(mockPrisma.payment.findUnique).not.toHaveBeenCalled()
+    expect(res.status).toBe(200)
   })
 
-  it('requisição sem x-signature quando secret está configurado → 401', async () => {
+  it('requisição sem x-signature mesmo com secret configurado → 200', async () => {
     const { POST } = await import('@/app/api/payments/webhook/route')
     const res = await POST(makeWebhookRequest({ type: 'payment', data: { id: '999' } }))
-    expect(res.status).toBe(401)
-    expect(mockPrisma.payment.findUnique).not.toHaveBeenCalled()
+    expect(res.status).toBe(200)
   })
 
-  it('HMAC válido é aceito corretamente', async () => {
+  it('HMAC válido também responde 200', async () => {
     const ts = String(Date.now())
     const resourceId = '123456' // simulação para evitar chamada real ao MP
     const signature = validHmac(resourceId, 'req-test-001', ts)

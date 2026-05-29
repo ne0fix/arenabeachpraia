@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/infrastructure/database/prisma'
 import { MercadoPagoService } from '@/services/MercadoPagoService'
+import { reconcilePaymentByResourceId } from '@/services/paymentReconciliation'
 import crypto from 'crypto'
 
 export async function POST(req: Request) {
@@ -32,30 +33,32 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true })
     }
 
-    if (webhookSecret) {
-      if (!signature) {
-        console.warn('Webhook: assinatura ausente (secret configurado)')
-        return NextResponse.json({ error: 'Assinatura ausente' }, { status: 401 })
-      }
+    // Validação HMAC é OPCIONAL e NÃO-BLOQUEANTE.
+    // O Mercado Pago nem sempre envia x-signature (depende da versão/origem da
+    // notificação), e o formato/secret podem divergir, fazendo webhooks legítimos
+    // serem rejeitados com 401 — o pagamento então nunca é confirmado.
+    // A autenticidade real é garantida adiante por mp.getPayment(resourceId), que
+    // usa o access token secreto: um atacante não consegue forjar um pagamento
+    // aprovado. Por isso aqui apenas logamos divergências e seguimos o processamento.
+    if (webhookSecret && signature) {
       try {
         const [tsPart, v1Part] = signature.split(',')
         const ts = tsPart?.split('=')[1]
         const v1 = v1Part?.split('=')[1]
-        if (!ts || !v1) {
-          console.warn('Webhook: formato de assinatura inválido')
-          return NextResponse.json({ error: 'Assinatura inválida' }, { status: 401 })
-        }
-        const manifest = `id:${resourceId};request-id:${requestId};ts:${ts};`
-        const hmac = crypto.createHmac('sha256', webhookSecret)
-        hmac.update(manifest)
-        const digest = hmac.digest('hex')
-        if (!crypto.timingSafeEqual(Buffer.from(digest), Buffer.from(v1))) {
-          console.warn('Webhook: assinatura HMAC inválida')
-          return NextResponse.json({ error: 'Assinatura inválida' }, { status: 401 })
+        if (ts && v1) {
+          const manifest = `id:${resourceId};request-id:${requestId};ts:${ts};`
+          const hmac = crypto.createHmac('sha256', webhookSecret)
+          hmac.update(manifest)
+          const digest = hmac.digest('hex')
+          const a = Buffer.from(digest)
+          const b = Buffer.from(v1)
+          const matches = a.length === b.length && crypto.timingSafeEqual(a, b)
+          if (!matches) {
+            console.warn('Webhook: assinatura HMAC divergente (continuando — autenticidade confirmada via getPayment)')
+          }
         }
       } catch (sigErr) {
-        console.warn('Webhook: erro ao validar assinatura:', sigErr)
-        return NextResponse.json({ error: 'Erro ao validar assinatura' }, { status: 401 })
+        console.warn('Webhook: erro ao validar assinatura (continuando):', sigErr)
       }
     }
 
@@ -68,153 +71,10 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true })
       }
 
-      console.log('Webhook: buscando pagamento MP id=', resourceId)
-      let mpData: any
-      try {
-        mpData = await mp.getPayment(String(resourceId))
-      } catch (err: any) {
-        console.error('Webhook: erro ao buscar pagamento MP:', err?.message ?? err)
-        return NextResponse.json({ ok: true })
-      }
-
-      const externalReference = mpData.external_reference
-      const mpStatus = mpData.status
-      console.log('Webhook: MP status=', mpStatus, 'external_reference=', externalReference)
-
-      if (!externalReference) {
-        console.warn('Webhook: external_reference ausente no pagamento MP', resourceId)
-        return NextResponse.json({ ok: true })
-      }
-
-      // Busca por gatewayId (cobre single e batch com o mesmo MP payment id)
-      let payments = await prisma.payment.findMany({
-        where: { gatewayId: String(resourceId) },
-        include: { booking: true },
-      })
-
-      // Fallback: busca pelo externalReference (bookingId) para pagamentos antigos
-      if (!payments.length) {
-        const fallback = await prisma.payment.findFirst({
-          where: { bookingId: externalReference },
-          include: { booking: true },
-        })
-        if (fallback) payments = [fallback]
-      }
-
-      if (!payments.length) {
-        console.warn('Webhook: nenhum payment encontrado para gatewayId=', resourceId, 'externalRef=', externalReference)
-        return NextResponse.json({ ok: true })
-      }
-
-      console.log(`Webhook: ${payments.length} payment(s) encontrado(s) para gatewayId=${resourceId}`)
-
-      // Filtra apenas os não-finalizados
-      const pending = payments.filter(p => !['APPROVED', 'REFUNDED', 'CANCELLED'].includes(p.status))
-      if (!pending.length) {
-        console.log('Webhook: todos os pagamentos já finalizados, ignorando')
-        return NextResponse.json({ ok: true })
-      }
-
-      if (['approved', 'processed', 'accredited'].includes(mpStatus)) {
-        // Processa cada booking individualmente
-        let totalRefunded = 0
-
-        for (const payment of pending) {
-          const booking = payment.booking
-          if (!booking) continue
-
-          // Reserva cancelada antes do pagamento
-          if (booking.status === 'CANCELLED') {
-            const refundAmt = Number(payment.amount)
-            try {
-              await mp.refundPayment(Number(resourceId), refundAmt)
-              await prisma.payment.update({
-                where: { id: payment.id },
-                data: { status: 'REFUNDED', refundedAt: new Date(), refundReason: 'Reserva cancelada antes do pagamento', refundAmount: payment.amount },
-              })
-              totalRefunded += refundAmt
-              console.log('Webhook: estorno de reserva cancelada, bookingId=', booking.id)
-            } catch (err) {
-              console.error('Webhook: falha no estorno de reserva cancelada:', err)
-              await prisma.payment.update({ where: { id: payment.id }, data: { status: 'CANCELLED' } })
-            }
-            continue
-          }
-
-          // Verifica conflito de horário
-          const conflict = await prisma.booking.findFirst({
-            where: {
-              id: { not: booking.id },
-              courtId: booking.courtId,
-              date: booking.date,
-              status: 'CONFIRMED',
-              OR: [
-                { startTime: { gte: booking.startTime, lt: booking.endTime } },
-                { endTime: { gt: booking.startTime, lte: booking.endTime } },
-                { startTime: { lte: booking.startTime }, endTime: { gte: booking.endTime } },
-              ],
-            },
-          })
-
-          if (conflict) {
-            // Pagamento aprovado MAS slot já confirmado por outro cliente → estorno manual
-            await prisma.booking.update({
-              where: { id: booking.id },
-              data: { status: 'CANCELLED', cancelReason: 'SLOT_TAKEN_BY_OTHER', cancelledAt: new Date(), cancelledBy: 'system' },
-            })
-            // Mantém payment APPROVED para o admin ver no painel financeiro e estornar manualmente
-            await prisma.payment.update({
-              where: { id: payment.id },
-              data: {
-                status: 'APPROVED',
-                paidAt: new Date(),
-                gatewayStatus: mpStatus,
-                gatewayId: String(resourceId),
-                refundReason: 'PENDING_MANUAL_REFUND: outro cliente confirmou primeiro',
-              },
-            })
-            console.log('Webhook: CONFLITO — pagamento aprovado, marcado para estorno manual. bookingId=', booking.id)
-          } else {
-            await prisma.payment.update({
-              where: { id: payment.id },
-              data: { status: 'APPROVED', paidAt: new Date(), gatewayStatus: mpStatus, gatewayId: String(resourceId) },
-            })
-            await prisma.booking.update({
-              where: { id: booking.id },
-              data: { status: 'CONFIRMED' },
-            })
-            console.log('Webhook: booking confirmado =', booking.id)
-          }
-        }
-
-        if (totalRefunded > 0) {
-          console.log(`Webhook: total estornado = R$${totalRefunded.toFixed(2)}`)
-        }
-
-      } else if (['rejected', 'cancelled', 'expired'].includes(mpStatus)) {
-        const newStatus = mpStatus === 'rejected' ? 'REJECTED' : mpStatus === 'expired' ? 'EXPIRED' : 'CANCELLED'
-        for (const payment of pending) {
-          await prisma.payment.update({
-            where: { id: payment.id },
-            data: { status: newStatus as any, gatewayStatus: mpStatus },
-          })
-          if (['expired', 'cancelled'].includes(mpStatus) && payment.booking?.status === 'PENDING') {
-            await prisma.booking.update({
-              where: { id: payment.bookingId },
-              data: {
-                status: 'CANCELLED',
-                cancelReason: mpStatus === 'expired' ? 'PIX_EXPIRED' : 'PAYMENT_CANCELLED',
-                cancelledAt: new Date(),
-                cancelledBy: 'system',
-              },
-            })
-            console.log('Webhook: booking cancelado por', mpStatus, '=', payment.bookingId)
-          }
-        }
-        console.log(`Webhook: ${pending.length} payment(s) → ${newStatus}`)
-      } else {
-        console.log('Webhook: status MP ignorado:', mpStatus)
-      }
+      console.log('Webhook: reconciliando pagamento MP id=', resourceId)
+      // Toda a lógica de confirmação/cancelamento/conflito vive em reconcilePaymentByResourceId,
+      // compartilhada com o polling ativo de /api/bookings/[id].
+      await reconcilePaymentByResourceId(resourceId, mp)
     } else {
       console.log('Webhook: tipo não tratado:', type ?? topic)
     }
