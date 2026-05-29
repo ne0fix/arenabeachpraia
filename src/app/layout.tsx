@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Lexend, Be_Vietnam_Pro } from 'next/font/google'
 import './globals.css'
 import { QueryProvider } from '@/views/providers/QueryProvider'
@@ -17,6 +17,13 @@ const beVietnamPro = Be_Vietnam_Pro({
   weight: ['300', '400', '500', '600'],
   variable: '--font-sans',
 })
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+}
 
 export const metadata: Metadata = {
   title: 'Arena Beach Serra',
