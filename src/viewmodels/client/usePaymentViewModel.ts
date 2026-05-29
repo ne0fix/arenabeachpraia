@@ -23,8 +23,10 @@ export function usePaymentViewModel() {
   const [pixQrCode, setPixQrCode] = useState<string | null>(null)
   const [pixQrCodeBase64, setPixQrCodeBase64] = useState<string | null>(null)
   const [bookingId, setBookingId] = useState<string | null>(null)
+  const [allBookingIds, setAllBookingIds] = useState<string[]>([])
   const [copied, setCopied] = useState(false)
   const [batchPending, setBatchPending] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
 
   const isBatch = params.get('batch') === 'true'
   const cartItemId = params.get('cartItemId') ?? ''
@@ -58,6 +60,7 @@ export function usePaymentViewModel() {
     },
     onSuccess: (data) => {
       setBookingId(data.booking.id)
+      setAllBookingIds([data.booking.id])
       const cartParam = cartItemId ? `&cartItemId=${cartItemId}` : ''
       if (method === 'PIX' && data.pixQrCode) {
         setPixQrCode(data.pixQrCode)
@@ -111,6 +114,7 @@ export function usePaymentViewModel() {
       }
 
       setBookingId(data.primaryBookingId)
+      setAllBookingIds(data.bookingIds)
       const batchParam = `&batchIds=${data.bookingIds.join(',')}`
 
       if (method === 'PIX' && data.pixQrCode) {
@@ -191,6 +195,30 @@ export function usePaymentViewModel() {
     if (bookingId) router.push(`/booking-success?bookingId=${bookingId}`)
   }
 
+  const cancelOrder = async () => {
+    setCancelling(true)
+    try {
+      if (allBookingIds.length > 0) {
+        await Promise.all(
+          allBookingIds.map((id) =>
+            fetch(`/api/bookings/${id}/cancel`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ reason: 'Cancelado pelo cliente na tela de pagamento', refund: false }),
+            })
+          )
+        )
+      }
+      cart.clearCart()
+      router.push('/')
+    } catch {
+      cart.clearCart()
+      router.push('/')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   return {
     method,
     setMethod,
@@ -205,8 +233,11 @@ export function usePaymentViewModel() {
     pixQrCodeBase64,
     copied,
     isPending,
+    cancelling,
+    hasBooking: allBookingIds.length > 0,
     confirmPayment,
     copyPix,
     simulatePixPayment,
+    cancelOrder,
   }
 }

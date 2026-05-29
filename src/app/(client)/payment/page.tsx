@@ -1,8 +1,8 @@
 'use client'
 
-import { Suspense } from 'react'
+import { Suspense, useState } from 'react'
 import Script from 'next/script'
-import { QrCode, CreditCard, Lock, Copy, Check, Smartphone, ScanLine, BadgeCheck, ChevronRight, AlertTriangle } from 'lucide-react'
+import { QrCode, CreditCard, Lock, Copy, Check, Smartphone, ScanLine, BadgeCheck, ChevronRight, AlertTriangle, XCircle, Loader2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import Image from 'next/image'
 import { Button } from '@/views/components/ui/Button'
@@ -14,9 +14,77 @@ const PIX_STEPS = [
   { icon: BadgeCheck, label: 'Confirme',   desc: 'o pagamento' },
 ]
 
+function CancelButton({
+  confirm,
+  cancelling,
+  onCancel,
+  onDismiss,
+}: {
+  confirm: boolean
+  cancelling: boolean
+  onCancel: () => void
+  onDismiss: () => void
+}) {
+  if (cancelling) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-3">
+        <Loader2 className="w-4 h-4 animate-spin text-red-500" />
+        <span className="font-headline text-sm text-red-500 font-bold">Cancelando pedido...</span>
+      </div>
+    )
+  }
+
+  if (confirm) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex flex-col gap-3">
+        <p className="font-headline text-sm text-red-700 font-bold text-center">
+          Tem certeza que deseja cancelar?
+        </p>
+        <p className="font-headline text-[11px] text-red-600 text-center leading-relaxed">
+          O pedido será cancelado e você voltará para a página inicial.
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="flex-1 py-2.5 rounded-xl border border-outline-variant/40 font-headline text-xs font-bold text-on-surface-variant hover:bg-surface-container transition-all"
+          >
+            Voltar
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-headline text-xs font-bold hover:bg-red-700 transition-all"
+          >
+            Sim, cancelar
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onCancel}
+      className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-red-200 text-red-500 font-headline text-sm font-bold hover:bg-red-50 active:scale-[0.98] transition-all"
+    >
+      <XCircle className="w-4 h-4" />
+      Cancelar pedido
+    </button>
+  )
+}
+
 function PaymentContent() {
   const vm = usePaymentViewModel()
   const isDev = process.env.NODE_ENV === 'development'
+  const [confirmCancel, setConfirmCancel] = useState(false)
+
+  const handleCancel = async () => {
+    if (!confirmCancel) { setConfirmCancel(true); return }
+    setConfirmCancel(false)
+    await vm.cancelOrder()
+  }
 
   return (
     <main className="px-4 pb-28 md:pb-12 max-w-lg mx-auto">
@@ -152,6 +220,14 @@ function PaymentContent() {
                     </span>
                   </div>
                 </div>
+
+                {/* Botão cancelar pedido */}
+                <CancelButton
+                  confirm={confirmCancel}
+                  cancelling={vm.cancelling}
+                  onCancel={handleCancel}
+                  onDismiss={() => setConfirmCancel(false)}
+                />
 
                 {isDev && (
                   <button
@@ -295,6 +371,16 @@ function PaymentContent() {
                   )}
                 </button>
               </form>
+
+              {/* Botão cancelar pedido */}
+              <div className="mt-3">
+                <CancelButton
+                  confirm={confirmCancel}
+                  cancelling={vm.cancelling}
+                  onCancel={handleCancel}
+                  onDismiss={() => setConfirmCancel(false)}
+                />
+              </div>
             </div>
           </motion.div>
         )}
