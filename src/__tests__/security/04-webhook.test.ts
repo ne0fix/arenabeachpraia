@@ -7,7 +7,7 @@
  *   [CORRETO]    ID de simulação "123456" retorna 200 sem processar pagamento real.
  *   [BUG]        Se mpWebhookSecret não estiver configurado, qualquer body é aceito.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest'
 import crypto from 'crypto'
 
 vi.mock('@/auth', () => ({ auth: vi.fn() }))
@@ -24,6 +24,10 @@ import { prisma } from '@/infrastructure/database/prisma'
 const mockPrisma = vi.mocked(prisma)
 
 const WEBHOOK_SECRET = 'test-webhook-secret-key'
+
+// Garante que a env var de produção não interfere nos testes
+beforeAll(() => { vi.stubEnv('MERCADOPAGO_WEBHOOK_SECRET', '') })
+afterAll(() => { vi.unstubAllEnvs() })
 
 function makeWebhookRequest(body: object, signatureHeader?: string): Request {
   const bodyText = JSON.stringify(body)
