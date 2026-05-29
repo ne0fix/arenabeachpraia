@@ -9,7 +9,7 @@ export async function GET(req: Request) {
     const type = searchParams.get('type') ?? undefined
     const courts = await repo.findAll({ isActive: true, type })
     return NextResponse.json(courts, {
-      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' },
+      headers: { 'Cache-Control': 'no-store' },
     })
   } catch (e) {
     return NextResponse.json({ message: 'Erro interno' }, { status: 500 })

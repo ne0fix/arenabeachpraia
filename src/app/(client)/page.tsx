@@ -2,7 +2,7 @@ import { PrismaCourtRepository } from '@/infrastructure/repositories/PrismaCourt
 import { CourtsLive } from '@/views/components/business/CourtsLive'
 import type { Court } from '@/models/entities/Court'
 
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
 
 async function getCourts(): Promise<Court[]> {
   try {
