@@ -6,6 +6,11 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // Imports pesados (SDK do Mercado Pago, etc.) podem levar mais que o padrão
+    // de 5s no primeiro carregamento, sobretudo no build da Vercel. Evita falsos
+    // negativos por timeout que bloqueariam o deploy.
+    testTimeout: 30000,
+    hookTimeout: 30000,
     setupFiles: ['./src/__tests__/security/setup.ts'],
     include: ['src/__tests__/**/*.test.ts'],
     coverage: {

@@ -24,18 +24,24 @@ export async function GET(req: Request) {
   const courtId = searchParams.get('courtId') ?? undefined
   const outputFormat = searchParams.get('format') ?? 'json'
 
+  const periodStart = new Date(startDate + 'T00:00:00')
+  const periodEnd = new Date(endDate + 'T23:59:59')
+
   const bookings = await prisma.booking.findMany({
     where: {
-      date: {
-        gte: new Date(startDate + 'T00:00:00'),
-        lte: new Date(endDate + 'T23:59:59'),
-      },
+      // Inclui reservas cujo JOGO ocorre no período (ocupação) OU cujo PAGAMENTO
+      // foi confirmado no período (receita). Sem o segundo critério, um pagamento
+      // feito hoje para um jogo futuro não apareceria no relatório financeiro.
+      OR: [
+        { date: { gte: periodStart, lte: periodEnd } },
+        { payment: { is: { paidAt: { gte: periodStart, lte: periodEnd } } } },
+      ],
       ...(courtId ? { courtId } : {}),
     },
     include: {
       court: { select: { name: true, location: true } },
       user: { select: { name: true, email: true } },
-      payment: { select: { method: true, status: true, amount: true, refundAmount: true, refundReason: true } },
+      payment: { select: { method: true, status: true, amount: true, refundAmount: true, refundReason: true, paidAt: true } },
     },
     orderBy: [{ date: 'asc' }, { startTime: 'asc' }],
   })
@@ -78,12 +84,18 @@ export async function GET(req: Request) {
     .reduce((sum, b) => sum + Number(b.payment?.refundAmount ?? 0), 0)
 
   const dayMap: Record<string, { label: string; revenue: number; refunds: number }> = {}
-  bookings.forEach((b) => {
-    const d = format(new Date(b.date), 'dd/MM')
+  const ensureDay = (d: string) => {
     if (!dayMap[d]) dayMap[d] = { label: d, revenue: 0, refunds: 0 }
-    if (isConfirmedRevenue(b.payment)) dayMap[d].revenue += Number(b.payment!.amount)
+    return dayMap[d]
+  }
+  bookings.forEach((b) => {
+    // Receita lançada na data do pagamento (paidAt); cai para a data do jogo se ausente
+    if (isConfirmedRevenue(b.payment)) {
+      const paidDate = b.payment?.paidAt ? new Date(b.payment.paidAt) : new Date(b.date)
+      ensureDay(format(paidDate, 'dd/MM')).revenue += Number(b.payment!.amount)
+    }
     if (['REFUNDED', 'PARTIAL_REFUND'].includes(b.payment?.status ?? '')) {
-      dayMap[d].refunds += Number(b.payment?.refundAmount ?? 0)
+      ensureDay(format(new Date(b.date), 'dd/MM')).refunds += Number(b.payment?.refundAmount ?? 0)
     }
   })
 
