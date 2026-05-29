@@ -84,10 +84,14 @@ function ClientModal({
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
-  const { data: client, isLoading } = useQuery<ClientDetail>({
+  const { data: rawClient, isLoading } = useQuery<ClientDetail>({
     queryKey: ['admin-client', clientId],
     queryFn: () => fetch(`/api/admin/clients/${clientId}`).then(r => r.json()),
+    retry: false,
   })
+
+  // Garante que só usamos dados válidos (não resposta de erro como { message: '...' })
+  const client = rawClient?.id ? rawClient : undefined
 
   const [form, setForm] = useState<{
     name: string; email: string; phone: string; cpf: string; status: string; password: string
@@ -424,13 +428,20 @@ export default function ClientsPage() {
   const handleSearch = (value: string) => { setSearch(value); setPage(1) }
   const handleStatus = (value: string) => { setStatus(value); setPage(1) }
 
-  const invalidate = () => {
+  const handleSaved = () => {
     queryClient.invalidateQueries({ queryKey: ['admin-clients'] })
     queryClient.invalidateQueries({ queryKey: ['admin-client', selectedId] })
+    setSelectedId(null)
   }
 
-  const handleSaved = () => { invalidate(); setSelectedId(null) }
-  const handleDeleted = () => { invalidate(); setSelectedId(null) }
+  const handleDeleted = () => {
+    // Fecha o modal primeiro para evitar refetch do cliente deletado durante a animação de saída
+    setSelectedId(null)
+    setTimeout(() => {
+      queryClient.removeQueries({ queryKey: ['admin-client', selectedId] })
+      queryClient.invalidateQueries({ queryKey: ['admin-clients'] })
+    }, 300)
+  }
 
   return (
     <div className="space-y-6">
