@@ -21,6 +21,7 @@ interface CourtDraft {
   pricePerHour: number
   maxPlayers: number
   showCapacity: boolean
+  isActive: boolean
   courtWhatsapp: string
   images: string[]
   sports: string[]
@@ -93,6 +94,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
     pricePerHour: court.pricePerHour,
     maxPlayers: Math.min(Math.max(court.maxPlayers, 1), 12),
     showCapacity: court.showCapacity,
+    isActive: court.isActive,
     courtWhatsapp: court.courtWhatsapp ?? '',
     images: initialImages,
     sports: court.sports ?? [],
@@ -175,6 +177,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
           pricePerHour: draft.pricePerHour,
           maxPlayers: draft.maxPlayers,
           showCapacity: draft.showCapacity,
+          isActive: draft.isActive,
           courtWhatsapp: draft.courtWhatsapp.trim(),
           images: draft.images,
           sports: draft.sports,
@@ -198,6 +201,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
     draft.pricePerHour !== court.pricePerHour ||
     draft.maxPlayers !== court.maxPlayers ||
     draft.showCapacity !== court.showCapacity ||
+    draft.isActive !== court.isActive ||
     draft.courtWhatsapp.trim() !== (court.courtWhatsapp ?? '') ||
     JSON.stringify(draft.images) !== JSON.stringify(initialImages) ||
     JSON.stringify(draft.sports) !== JSON.stringify(court.sports ?? [])
@@ -207,6 +211,13 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
       {/* Preview carrossel */}
       <div className="relative h-44 bg-secondary-container overflow-hidden">
         <ImageCarouselPreview images={draft.images} name={draft.name} />
+        {!draft.isActive && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+            <span className="bg-red-600 text-white font-headline text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">
+              Oculto para clientes
+            </span>
+          </div>
+        )}
         <div className="absolute top-2 right-2 bg-black/40 backdrop-blur-sm text-white rounded-lg px-2 py-0.5 font-headline text-[9px] font-bold uppercase flex items-center gap-1">
           <Eye className="w-3 h-3" /> Preview
         </div>
@@ -285,6 +296,19 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
             </span>
             <span className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${draft.showCapacity ? 'bg-primary' : 'bg-outline-variant/50'}`}>
               <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${draft.showCapacity ? 'left-[17px]' : 'left-0.5'}`} />
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setDraft((d) => ({ ...d, isActive: !d.isActive }))}
+            className={`flex items-center justify-between w-full border rounded-xl px-3 py-2.5 transition-colors ${draft.isActive ? 'bg-surface-container border-outline-variant/40 hover:border-primary/30' : 'bg-red-50 border-red-200 hover:border-red-400'}`}
+          >
+            <span className={`font-headline text-xs font-semibold ${draft.isActive ? 'text-on-surface-variant' : 'text-red-700'}`}>
+              {draft.isActive ? 'Visível para clientes' : 'Oculto para clientes'}
+            </span>
+            <span className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${draft.isActive ? 'bg-green-500' : 'bg-red-400'}`}>
+              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${draft.isActive ? 'left-[17px]' : 'left-0.5'}`} />
             </span>
           </button>
         </div>
@@ -497,7 +521,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
           {isDirty && (
             <button
               type="button"
-              onClick={() => setDraft({ name: court.name, description: court.description, pricePerHour: court.pricePerHour, maxPlayers: Math.min(Math.max(court.maxPlayers, 1), 12), showCapacity: court.showCapacity, courtWhatsapp: court.courtWhatsapp ?? '', images: initialImages, sports: court.sports ?? [] })}
+              onClick={() => setDraft({ name: court.name, description: court.description, pricePerHour: court.pricePerHour, maxPlayers: Math.min(Math.max(court.maxPlayers, 1), 12), showCapacity: court.showCapacity, isActive: court.isActive, courtWhatsapp: court.courtWhatsapp ?? '', images: initialImages, sports: court.sports ?? [] })}
               className="p-2.5 bg-surface-container hover:bg-outline-variant/30 rounded-xl transition-all"
               title="Descartar alterações"
             >
