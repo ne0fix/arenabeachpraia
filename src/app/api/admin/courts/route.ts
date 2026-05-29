@@ -54,6 +54,7 @@ export async function POST(req: Request) {
     courtWhatsapp: '',
     openTime: result.data.morningOpen,
     closeTime: result.data.afternoonClose,
+    sports: [],
   })
 
   return NextResponse.json(court, { status: 201 })

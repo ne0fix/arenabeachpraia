@@ -23,6 +23,7 @@ interface CourtDraft {
   showCapacity: boolean
   courtWhatsapp: string
   images: string[]
+  sports: string[]
 }
 
 // ─── Mini carousel de preview ─────────────────────────────────────────────────
@@ -94,7 +95,9 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
     showCapacity: court.showCapacity,
     courtWhatsapp: court.courtWhatsapp ?? '',
     images: initialImages,
+    sports: court.sports ?? [],
   })
+  const [sportInput, setSportInput] = useState('')
 
   const [urlInput, setUrlInput] = useState('')
   const [addMode, setAddMode] = useState<'upload' | 'url'>('upload')
@@ -174,6 +177,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
           showCapacity: draft.showCapacity,
           courtWhatsapp: draft.courtWhatsapp.trim(),
           images: draft.images,
+          sports: draft.sports,
         }),
       })
       if (!res.ok) throw new Error('Erro ao salvar')
@@ -195,7 +199,8 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
     draft.maxPlayers !== court.maxPlayers ||
     draft.showCapacity !== court.showCapacity ||
     draft.courtWhatsapp.trim() !== (court.courtWhatsapp ?? '') ||
-    JSON.stringify(draft.images) !== JSON.stringify(initialImages)
+    JSON.stringify(draft.images) !== JSON.stringify(initialImages) ||
+    JSON.stringify(draft.sports) !== JSON.stringify(court.sports ?? [])
 
   return (
     <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 overflow-hidden sun-shadow">
@@ -299,6 +304,64 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
           <p className="font-headline text-[10px] text-on-surface-variant mt-1">
             Se preenchido, substitui o WhatsApp global no botão desta quadra. Deixe em branco para usar o número padrão de Contato.
           </p>
+        </div>
+
+        {/* Esportes */}
+        <div>
+          <label className="font-headline text-[10px] text-on-surface-variant uppercase font-bold tracking-widest mb-1.5 block">
+            Esportes disponíveis
+          </label>
+          <div className="flex gap-2 mb-2">
+            <input
+              value={sportInput}
+              onChange={(e) => setSportInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  const s = sportInput.trim()
+                  if (s && !draft.sports.includes(s)) {
+                    setDraft((d) => ({ ...d, sports: [...d.sports, s] }))
+                  }
+                  setSportInput('')
+                }
+              }}
+              placeholder="Ex: Vôlei, Beach Tennis..."
+              className="flex-1 bg-surface-container border border-outline-variant/40 rounded-xl px-3 py-2 font-headline text-xs text-on-surface focus:outline-none focus:border-primary/50 transition-colors placeholder:text-on-surface-variant/40"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                const s = sportInput.trim()
+                if (s && !draft.sports.includes(s)) {
+                  setDraft((d) => ({ ...d, sports: [...d.sports, s] }))
+                }
+                setSportInput('')
+              }}
+              disabled={!sportInput.trim()}
+              className="bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-40 px-3 py-2 rounded-xl font-headline text-[10px] font-bold uppercase transition-all flex items-center gap-1"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add
+            </button>
+          </div>
+          {draft.sports.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {draft.sports.map((s) => (
+                <span key={s} className="flex items-center gap-1 bg-primary/10 text-primary border border-primary/20 px-2.5 py-1 rounded-full font-headline text-xs font-bold">
+                  {s}
+                  <button
+                    type="button"
+                    onClick={() => setDraft((d) => ({ ...d, sports: d.sports.filter((x) => x !== s) }))}
+                    className="hover:text-red-500 transition-colors ml-0.5"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          {draft.sports.length === 0 && (
+            <p className="font-headline text-[10px] text-on-surface-variant/60">Nenhum esporte — o cliente não verá a seleção.</p>
+          )}
         </div>
 
         {/* Imagens */}
@@ -434,7 +497,7 @@ function CourtEditor({ court, onSaved }: { court: Court; onSaved: (updated: Cour
           {isDirty && (
             <button
               type="button"
-              onClick={() => setDraft({ name: court.name, description: court.description, pricePerHour: court.pricePerHour, maxPlayers: Math.min(Math.max(court.maxPlayers, 1), 12), showCapacity: court.showCapacity, courtWhatsapp: court.courtWhatsapp ?? '', images: initialImages })}
+              onClick={() => setDraft({ name: court.name, description: court.description, pricePerHour: court.pricePerHour, maxPlayers: Math.min(Math.max(court.maxPlayers, 1), 12), showCapacity: court.showCapacity, courtWhatsapp: court.courtWhatsapp ?? '', images: initialImages, sports: court.sports ?? [] })}
               className="p-2.5 bg-surface-container hover:bg-outline-variant/30 rounded-xl transition-all"
               title="Descartar alterações"
             >

@@ -80,7 +80,8 @@ export default function CartPage() {
     if (!cart.items.length) return
     if (cart.items.length === 1) {
       const item = cart.items[0]
-      router.push(`/payment?courtId=${item.courtId}&date=${item.date}&startTime=${item.startTime}&endTime=${item.endTime}&cartItemId=${item.id}`)
+      const sportsParam = item.sports?.length ? `&sports=${encodeURIComponent(item.sports.join(','))}` : ''
+      router.push(`/payment?courtId=${item.courtId}&date=${item.date}&startTime=${item.startTime}&endTime=${item.endTime}&cartItemId=${item.id}${sportsParam}`)
     } else {
       router.push('/payment?batch=true')
     }

@@ -19,6 +19,7 @@ export interface CreateBookingInput {
   paymentMethod: PaymentMethod
   paymentToken?: string
   cardBrand?: string
+  sport?: string
 }
 
 export interface CreateBookingOutput {
@@ -69,6 +70,7 @@ export class CreateBookingUseCase {
       totalValue,
       status: 'PENDING',
       accessCode: generateAccessCode(),
+      sport: input.sport ?? null,
       notes: null,
       cancelledAt: null,
       cancelReason: null,

@@ -23,6 +23,7 @@ export interface Court {
   afternoonOpen: string
   afternoonClose: string
   afternoonEnabled: boolean
+  sports: string[]
   createdAt: Date
   updatedAt: Date
 }

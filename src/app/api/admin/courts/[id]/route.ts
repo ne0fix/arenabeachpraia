@@ -20,6 +20,7 @@ export async function PUT(
     'amenities', 'location', 'courtWhatsapp', 'maxPlayers', 'showCapacity', 'openTime', 'closeTime', 'slotDuration',
     'morningOpen', 'morningClose', 'morningEnabled',
     'afternoonOpen', 'afternoonClose', 'afternoonEnabled',
+    'sports',
   ]
   const data: Record<string, unknown> = {}
   for (const key of allowed) {

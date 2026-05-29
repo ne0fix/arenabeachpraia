@@ -15,6 +15,7 @@ const batchSchema = z.object({
     startTime: z.string().regex(/^\d{2}:\d{2}$/),
     endTime: z.string().regex(/^\d{2}:\d{2}$/),
     cartItemId: z.string(),
+    sport: z.string().optional(),
   })).min(2),
   paymentMethod: z.enum(['PIX', 'CREDIT_CARD', 'DEBIT_CARD']),
   paymentToken: z.string().optional(),
@@ -91,6 +92,7 @@ export async function POST(req: Request) {
           totalValue: d.amount,
           status: 'PENDING',
           accessCode: generateAccessCode(),
+          sport: d.sport ?? null,
         },
       })
     )

@@ -11,6 +11,7 @@ export interface CartItem {
   endTime: string
   totalAmount: number
   durationHours: number
+  sports?: string[]
 }
 
 const CART_KEY = 'booking_cart'

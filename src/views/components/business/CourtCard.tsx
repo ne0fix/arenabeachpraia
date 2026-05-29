@@ -1,11 +1,13 @@
 'use client'
 
-import Link from 'next/link'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Users, ArrowRight, MessageCircle } from 'lucide-react'
 import { Button } from '@/views/components/ui/Button'
 import { formatCurrency } from '@/core/utils/formatCurrency'
 import { CourtImageCarousel } from '@/views/components/business/CourtImageCarousel'
 import { useSiteSettings, buildWaLink } from '@/views/providers/SiteSettingsProvider'
+import { cn } from '@/core/utils/helpers'
 import type { Court } from '@/models/entities/Court'
 
 interface CourtCardProps {
@@ -13,10 +15,26 @@ interface CourtCardProps {
 }
 
 export function CourtCard({ court }: CourtCardProps) {
+  const router = useRouter()
   const isExclusive = court.type === 'EXCLUSIVE'
   const { whatsappNumber: globalWhatsapp, msgExclusive } = useSiteSettings()
-  // Usa o WhatsApp específico da quadra se configurado, senão o global
   const whatsappNumber = court.courtWhatsapp?.trim() || globalWhatsapp
+
+  const hasSports = court.sports && court.sports.length > 0
+  const [selectedSports, setSelectedSports] = useState<string[]>([])
+
+  const toggleSport = (sport: string) => {
+    setSelectedSports((prev) =>
+      prev.includes(sport) ? prev.filter((s) => s !== sport) : [...prev, sport]
+    )
+  }
+
+  const handleAgendar = () => {
+    const query = selectedSports.length > 0
+      ? `?sports=${encodeURIComponent(selectedSports.join(','))}`
+      : ''
+    router.push(`/booking/${court.id}${query}`)
+  }
 
   return (
     <div className="flex flex-col group h-full bg-surface-container-lowest rounded-2xl border border-outline-variant/30 overflow-hidden sun-shadow transition-all hover:border-primary/20">
@@ -79,11 +97,53 @@ export function CourtCard({ court }: CourtCardProps) {
               Falar no WhatsApp
             </Button>
           ) : (
-            <Link href={`/booking/${court.id}`} className="block">
-              <Button className="w-full h-11 md:h-12 text-xs md:text-sm" rightIcon={<ArrowRight className="w-4 h-4 md:w-5 md:h-5" />}>
+            <>
+              {hasSports && (
+                <div className="mb-3">
+                  <p className="font-headline text-[10px] text-on-surface-variant uppercase font-bold tracking-widest mb-2">
+                    Escolha o(s) esporte(s)
+                  </p>
+                  <div className="flex flex-col gap-1.5">
+                    {court.sports.map((sport) => {
+                      const checked = selectedSports.includes(sport)
+                      return (
+                        <button
+                          key={sport}
+                          type="button"
+                          onClick={() => toggleSport(sport)}
+                          className={cn(
+                            'flex items-center gap-2.5 px-3 py-2 rounded-xl border font-headline text-sm font-medium transition-all text-left',
+                            checked
+                              ? 'bg-primary/10 border-primary text-primary'
+                              : 'bg-surface-container border-outline-variant/30 text-on-surface hover:border-primary/40'
+                          )}
+                        >
+                          <span className={cn(
+                            'w-4 h-4 rounded-md border-2 flex-shrink-0 flex items-center justify-center transition-all',
+                            checked ? 'bg-primary border-primary' : 'border-outline-variant'
+                          )}>
+                            {checked && (
+                              <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 10" fill="none">
+                                <path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            )}
+                          </span>
+                          {sport}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+              <Button
+                className="w-full h-11 md:h-12 text-xs md:text-sm"
+                rightIcon={<ArrowRight className="w-4 h-4 md:w-5 md:h-5" />}
+                onClick={handleAgendar}
+                disabled={hasSports && selectedSports.length === 0}
+              >
                 Agendar Horário
               </Button>
-            </Link>
+            </>
           )}
         </div>
       </div>

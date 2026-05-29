@@ -113,6 +113,7 @@ model Court {
   afternoonOpen    String    @default("13:00")
   afternoonClose   String    @default("22:00")
   afternoonEnabled Boolean   @default(true)
+  sports           String[]  @default([])
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -173,6 +174,7 @@ model Booking {
   totalValue    Decimal       @db.Decimal(10, 2)
   status        BookingStatus @default(PENDING)
   accessCode    String        @unique
+  sport         String?
   notes         String?
   cancelledAt   DateTime?
   cancelReason  String?

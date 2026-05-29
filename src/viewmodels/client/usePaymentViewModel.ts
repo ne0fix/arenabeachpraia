@@ -34,6 +34,8 @@ export function usePaymentViewModel() {
   const date = params.get('date') ?? ''
   const startTime = params.get('startTime') ?? ''
   const endTime = params.get('endTime') ?? ''
+  const sportsParam = params.get('sports')
+  const sport = sportsParam ? decodeURIComponent(sportsParam) : undefined
 
   const { mutateAsync: createSingleBooking, isPending: singlePending } = useMutation({
     mutationFn: async (data: { paymentToken?: string; cardBrand?: string }) => {
@@ -48,6 +50,7 @@ export function usePaymentViewModel() {
           paymentMethod: method,
           paymentToken: data.paymentToken,
           cardBrand: data.cardBrand,
+          sport,
         }),
       })
       if (!res.ok) throw new Error('Erro ao criar agendamento')
@@ -80,6 +83,7 @@ export function usePaymentViewModel() {
         startTime: i.startTime,
         endTime: i.endTime,
         cartItemId: i.id,
+        sport: i.sports?.join(', ') ?? undefined,
       }))
 
       const res = await fetch('/api/bookings/batch', {

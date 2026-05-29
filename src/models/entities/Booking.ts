@@ -11,6 +11,7 @@ export interface Booking {
   totalValue: number
   status: BookingStatus
   accessCode: string
+  sport: string | null
   notes: string | null
   cancelledAt: Date | null
   cancelReason: string | null

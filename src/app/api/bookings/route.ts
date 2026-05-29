@@ -16,6 +16,7 @@ const createSchema = z.object({
   paymentMethod: z.enum(['PIX', 'CREDIT_CARD', 'DEBIT_CARD']),
   paymentToken: z.string().optional(),
   cardBrand: z.string().optional(),
+  sport: z.string().optional(),
 })
 
 export async function POST(req: Request) {

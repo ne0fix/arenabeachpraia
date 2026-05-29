@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { addDays, format } from 'date-fns'
 import type { Court, DayAvailability, TimeSlot } from '@/models/entities/Court'
@@ -45,6 +45,9 @@ function findSelectionRuns(selected: string[], allTimes: string[], slotDuration:
 
 export function useBookingViewModel(courtId: string) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const sportsParam = searchParams.get('sports')
+  const sports = sportsParam ? sportsParam.split(',').map((s) => decodeURIComponent(s.trim())).filter(Boolean) : undefined
   const cart = useBookingCart()
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
   const [selectedSlots, setSelectedSlots] = useState<string[]>([])
@@ -176,7 +179,7 @@ export function useBookingViewModel(courtId: string) {
       const runEnd = addMinutesToTime(run[run.length - 1], slotDuration)
       const durationHours = (run.length * slotDuration) / 60
       const totalAmount = Number(court.pricePerHour) * durationHours
-      cart.addItem({ courtId, courtName: court.name, date: dateStr, startTime: runStart, endTime: runEnd, totalAmount, durationHours })
+      cart.addItem({ courtId, courtName: court.name, date: dateStr, startTime: runStart, endTime: runEnd, totalAmount, durationHours, sports })
     }
     setSelectedSlots([])
     setSlotError('')
