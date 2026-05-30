@@ -110,14 +110,19 @@ export class PrismaBookingRepository implements IBookingRepository {
     const allOrders: AdminOrder[] = Array.from(groups.entries()).map(([orderId, items]) => {
       const sorted = [...items].sort((a, b) => +new Date(a.date) - +new Date(b.date) || a.startTime.localeCompare(b.startTime))
       const createdAt = items.reduce((min, b) => (b.createdAt < min ? b.createdAt : min), items[0].createdAt)
+      // Pagamento do pedido: todos os bookings compartilham o mesmo gateway/método.
+      const withPayment = items.find(b => b.payment) ?? items[0]
       return {
         orderId,
+        accessCode: items[0].accessCode,
         createdAt,
         user: items[0].user,
         bookings: sorted,
         courtNames: Array.from(new Set(items.map(b => b.court.name))),
         totalValue: items.reduce((sum, b) => sum + Number(b.payment?.amount ?? b.totalValue), 0),
-        paymentMethod: items[0].payment?.method ?? null,
+        paymentMethod: withPayment.payment?.method ?? null,
+        paymentStatus: withPayment.payment?.status ?? null,
+        gatewayId: withPayment.payment?.gatewayId ?? null,
         status: aggregateStatus(items),
       }
     })

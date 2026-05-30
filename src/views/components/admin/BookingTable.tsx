@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, Fragment } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
-import { Eye, XCircle, RotateCcw, ChevronRight, ChevronDown } from 'lucide-react'
+import { Eye, XCircle, RotateCcw, X, Hash, CreditCard, CheckCircle2, Clock } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { motion, AnimatePresence } from 'motion/react'
 import { Badge } from '@/views/components/ui/Badge'
 import { formatCurrency } from '@/core/utils/formatCurrency'
 import { CancellationModal } from './CancellationModal'
@@ -38,21 +39,157 @@ const paymentLabel: Record<string, string> = {
   DEBIT_CARD: 'Débito',
 }
 
+const paymentStatusLabel: Record<string, string> = {
+  APPROVED: 'Pago / Confirmado',
+  PENDING: 'Aguardando pagamento',
+  PROCESSING: 'Processando',
+  REJECTED: 'Recusado',
+  CANCELLED: 'Cancelado',
+  REFUNDED: 'Estornado',
+  PARTIAL_REFUND: 'Estorno parcial',
+  EXPIRED: 'Expirado',
+}
+
 function fmtDate(d: BookingWithDetails['date']) {
   return format(new Date(String(d).slice(0, 10) + 'T12:00:00'), 'dd/MM/yy', { locale: ptBR })
 }
 
+// ─── Modal de detalhes do pedido ────────────────────────────────────────────
+
+function OrderDetailModal({
+  order,
+  onClose,
+  onCancel,
+  onRefund,
+}: {
+  order: AdminOrder
+  onClose: () => void
+  onCancel: (b: BookingWithDetails) => void
+  onRefund: (b: BookingWithDetails) => void
+}) {
+  const paid = order.paymentStatus === 'APPROVED'
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 40, opacity: 0 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+        className="bg-surface w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/20">
+          <div>
+            <h2 className="font-headline text-base font-bold text-on-surface">Pedido</h2>
+            <p className="font-headline text-xs text-on-surface-variant">{order.user.name} · {order.user.email}</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-surface-container rounded-full transition-all">
+            <X className="w-5 h-5 text-on-surface-variant" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+          {/* Resumo do pedido */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-surface-container rounded-xl px-3 py-2.5">
+              <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold flex items-center gap-1">
+                <Hash className="w-3 h-3" /> Nº do Pedido
+              </p>
+              <p className="font-headline text-sm text-on-surface font-bold mt-0.5">{order.accessCode}</p>
+            </div>
+            <div className="bg-surface-container rounded-xl px-3 py-2.5">
+              <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold flex items-center gap-1">
+                <CreditCard className="w-3 h-3" /> Pagamento
+              </p>
+              <p className="font-headline text-sm text-on-surface font-bold mt-0.5">
+                {order.paymentMethod ? paymentLabel[order.paymentMethod] : '—'}
+              </p>
+            </div>
+            <div className="bg-surface-container rounded-xl px-3 py-2.5">
+              <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold flex items-center gap-1">
+                {paid ? <CheckCircle2 className="w-3 h-3 text-green-600" /> : <Clock className="w-3 h-3 text-amber-600" />}
+                Status
+              </p>
+              <p className={`font-headline text-sm font-bold mt-0.5 ${paid ? 'text-green-700' : 'text-amber-700'}`}>
+                {order.paymentStatus ? (paymentStatusLabel[order.paymentStatus] ?? order.paymentStatus) : '—'}
+              </p>
+            </div>
+            <div className="bg-surface-container rounded-xl px-3 py-2.5">
+              <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Total</p>
+              <p className="font-headline text-sm text-primary font-bold mt-0.5">{formatCurrency(order.totalValue)}</p>
+            </div>
+          </div>
+
+          {order.gatewayId && (
+            <p className="font-headline text-[10px] text-on-surface-variant">
+              ID transação Mercado Pago: <span className="font-bold">{order.gatewayId}</span>
+            </p>
+          )}
+
+          {/* Horários do pedido */}
+          <div className="space-y-2">
+            <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">
+              {order.bookings.length} {order.bookings.length === 1 ? 'horário' : 'horários'}
+            </p>
+            {order.bookings.map((b) => (
+              <div key={b.id} className="flex items-center justify-between gap-3 bg-surface-container-lowest border border-outline-variant/20 rounded-xl px-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="font-headline text-sm font-bold text-on-surface truncate">{b.court.name}</p>
+                  <p className="font-headline text-xs text-on-surface-variant">
+                    {fmtDate(b.date)} · {b.startTime}–{b.endTime} · {formatCurrency(Number(b.payment?.amount ?? b.totalValue))}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <Badge variant={statusVariant[b.status]}>{statusLabel[b.status]}</Badge>
+                  <Link
+                    href={`/admin/bookings/${b.id}`}
+                    className="p-1.5 hover:bg-surface-container rounded-lg transition-colors text-on-surface-variant hover:text-primary"
+                    title="Abrir reserva"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </Link>
+                  {['CONFIRMED', 'PENDING'].includes(b.status) && (
+                    <button
+                      onClick={() => onCancel(b)}
+                      className="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-on-surface-variant hover:text-red-600"
+                      title="Cancelar horário"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  )}
+                  {b.status === 'CANCELLED' && b.payment?.status === 'APPROVED' && (
+                    <button
+                      onClick={() => onRefund(b)}
+                      className="p-1.5 hover:bg-amber-50 rounded-lg transition-colors text-on-surface-variant hover:text-amber-600"
+                      title="Estornar"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── Tabela de pedidos ───────────────────────────────────────────────────────
+
 export function BookingTable({ orders, isLoading }: BookingTableProps) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [detailOrder, setDetailOrder] = useState<AdminOrder | null>(null)
   const [cancelModal, setCancelModal] = useState<BookingWithDetails | null>(null)
   const [refundModal, setRefundModal] = useState<BookingWithDetails | null>(null)
-
-  const toggle = (orderId: string) =>
-    setExpanded((prev) => {
-      const next = new Set(prev)
-      next.has(orderId) ? next.delete(orderId) : next.add(orderId)
-      return next
-    })
 
   if (isLoading) {
     return (
@@ -63,37 +200,6 @@ export function BookingTable({ orders, isLoading }: BookingTableProps) {
       </div>
     )
   }
-
-  // Ações de um horário individual (reusado na linha simples e na expansão)
-  const bookingActions = (b: BookingWithDetails) => (
-    <div className="flex items-center gap-1">
-      <Link
-        href={`/admin/bookings/${b.id}`}
-        className="p-1.5 hover:bg-surface-container rounded-lg transition-colors text-on-surface-variant hover:text-primary"
-        title="Ver detalhes"
-      >
-        <Eye className="w-4 h-4" />
-      </Link>
-      {['CONFIRMED', 'PENDING'].includes(b.status) && (
-        <button
-          onClick={() => setCancelModal(b)}
-          className="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-on-surface-variant hover:text-red-600"
-          title="Cancelar"
-        >
-          <XCircle className="w-4 h-4" />
-        </button>
-      )}
-      {b.status === 'CANCELLED' && b.payment?.status === 'APPROVED' && (
-        <button
-          onClick={() => setRefundModal(b)}
-          className="p-1.5 hover:bg-amber-50 rounded-lg transition-colors text-on-surface-variant hover:text-amber-600"
-          title="Estornar"
-        >
-          <RotateCcw className="w-4 h-4" />
-        </button>
-      )}
-    </div>
-  )
 
   return (
     <>
@@ -118,83 +224,59 @@ export function BookingTable({ orders, isLoading }: BookingTableProps) {
             ) : (
               orders.map((order) => {
                 const multi = order.bookings.length > 1
-                const isOpen = expanded.has(order.orderId)
                 const single = order.bookings[0]
-
                 return (
-                  <Fragment key={order.orderId}>
-                    {/* Linha do pedido */}
-                    <tr
-                      className={`hover:bg-surface-container/50 transition-colors ${multi ? 'cursor-pointer' : ''}`}
-                      onClick={multi ? () => toggle(order.orderId) : undefined}
-                    >
-                      <td className="px-4 py-3">
-                        <p className="font-headline text-sm text-on-surface font-bold">{order.user.name}</p>
-                        <p className="font-headline text-xs text-on-surface-variant">{order.user.email}</p>
-                      </td>
-                      <td className="px-4 py-3 font-headline text-sm text-on-surface">
-                        {order.courtNames.length === 1 ? order.courtNames[0] : `${order.courtNames.length} quadras`}
-                      </td>
-                      <td className="px-4 py-3 font-headline text-sm text-on-surface whitespace-nowrap">
-                        {multi ? (
-                          <span className="inline-flex items-center gap-1.5 font-bold text-primary">
-                            {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                            {order.bookings.length} horários
-                          </span>
-                        ) : (
-                          <span>{fmtDate(single.date)} · {single.startTime}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 font-headline text-sm text-primary font-bold whitespace-nowrap">
-                        {formatCurrency(order.totalValue)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant={statusVariant[order.status]}>{statusLabel[order.status]}</Badge>
-                      </td>
-                      <td className="px-4 py-3 font-headline text-xs text-on-surface-variant">
-                        {order.paymentMethod ? paymentLabel[order.paymentMethod] : '—'}
-                      </td>
-                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                        {multi ? (
-                          <button
-                            onClick={() => toggle(order.orderId)}
-                            className="p-1.5 hover:bg-surface-container rounded-lg transition-colors text-on-surface-variant hover:text-primary"
-                            title={isOpen ? 'Recolher' : 'Ver horários'}
-                          >
-                            {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                          </button>
-                        ) : (
-                          bookingActions(single)
-                        )}
-                      </td>
-                    </tr>
-
-                    {/* Horários do pedido (expandido) */}
-                    {multi && isOpen && order.bookings.map((b) => (
-                      <tr key={b.id} className="bg-surface-container/30">
-                        <td className="px-4 py-2 pl-10" colSpan={2}>
-                          <span className="font-headline text-xs text-on-surface-variant">{b.court.name}</span>
-                        </td>
-                        <td className="px-4 py-2 font-headline text-sm text-on-surface whitespace-nowrap">
-                          {fmtDate(b.date)} · {b.startTime}–{b.endTime}
-                        </td>
-                        <td className="px-4 py-2 font-headline text-sm text-on-surface whitespace-nowrap">
-                          {formatCurrency(Number(b.payment?.amount ?? b.totalValue))}
-                        </td>
-                        <td className="px-4 py-2">
-                          <Badge variant={statusVariant[b.status]}>{statusLabel[b.status]}</Badge>
-                        </td>
-                        <td className="px-4 py-2" />
-                        <td className="px-4 py-2">{bookingActions(b)}</td>
-                      </tr>
-                    ))}
-                  </Fragment>
+                  <tr key={order.orderId} className="hover:bg-surface-container/50 transition-colors">
+                    <td className="px-4 py-3">
+                      <p className="font-headline text-sm text-on-surface font-bold">{order.user.name}</p>
+                      <p className="font-headline text-xs text-on-surface-variant">{order.user.email}</p>
+                    </td>
+                    <td className="px-4 py-3 font-headline text-sm text-on-surface">
+                      {order.courtNames.length === 1 ? order.courtNames[0] : `${order.courtNames.length} quadras`}
+                    </td>
+                    <td className="px-4 py-3 font-headline text-sm text-on-surface whitespace-nowrap">
+                      {multi ? (
+                        <span className="font-bold text-primary">{order.bookings.length} horários</span>
+                      ) : (
+                        <span>{fmtDate(single.date)} · {single.startTime}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 font-headline text-sm text-primary font-bold whitespace-nowrap">
+                      {formatCurrency(order.totalValue)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant={statusVariant[order.status]}>{statusLabel[order.status]}</Badge>
+                    </td>
+                    <td className="px-4 py-3 font-headline text-xs text-on-surface-variant">
+                      {order.paymentMethod ? paymentLabel[order.paymentMethod] : '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => setDetailOrder(order)}
+                        className="p-1.5 hover:bg-surface-container rounded-lg transition-colors text-on-surface-variant hover:text-primary"
+                        title="Ver detalhes do pedido"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
                 )
               })
             )}
           </tbody>
         </table>
       </div>
+
+      <AnimatePresence>
+        {detailOrder && (
+          <OrderDetailModal
+            order={detailOrder}
+            onClose={() => setDetailOrder(null)}
+            onCancel={(b) => setCancelModal(b)}
+            onRefund={(b) => setRefundModal(b)}
+          />
+        )}
+      </AnimatePresence>
 
       {cancelModal && (
         <CancellationModal

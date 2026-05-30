@@ -173,7 +173,7 @@ model Booking {
   durationHours Decimal       @db.Decimal(4, 2)
   totalValue    Decimal       @db.Decimal(10, 2)
   status        BookingStatus @default(PENDING)
-  accessCode    String        @unique
+  accessCode    String
   orderId       String?
   sport         String?
   notes         String?
@@ -192,6 +192,7 @@ model Booking {
   @@index([userId])
   @@index([status])
   @@index([orderId])
+  @@index([accessCode])
   @@map("bookings")
 }
 

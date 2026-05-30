@@ -50,12 +50,15 @@ export interface BookingWithDetails extends Booking {
 // Pedido agrupado: um checkout (orderId) com um ou mais horários (bookings).
 export interface AdminOrder {
   orderId: string
+  accessCode: string
   createdAt: Date
   user: { id: string; name: string; email: string; phone: string | null }
   bookings: BookingWithDetails[]
   courtNames: string[]
   totalValue: number
   paymentMethod: string | null
+  paymentStatus: string | null
+  gatewayId: string | null
   // Status agregado do pedido (ver regra de derivação no repositório)
   status: BookingStatus
 }

@@ -213,10 +213,19 @@ function BookingDetailModal({ booking, onClose, onCancel }: {
   )
 }
 
+interface ClientOrder {
+  orderId: string
+  bookings: BookingWithDetails[]
+  primary: BookingWithDetails
+  count: number
+  total: number
+}
+
 export default function BookingsPage() {
   const router = useRouter()
   const vm = useMyBookingsViewModel()
   const [selected, setSelected] = useState<BookingWithDetails | null>(null)
+  const [selectedOrder, setSelectedOrder] = useState<ClientOrder | null>(null)
 
   return (
     <>
@@ -283,7 +292,7 @@ export default function BookingsPage() {
 
         {vm.isLoading ? (
           <Loader />
-        ) : vm.filtered.length === 0 ? (
+        ) : vm.groupedOrders.length === 0 ? (
           <div className="text-center py-12">
             <div className="w-20 h-20 bg-surface-container rounded-full flex items-center justify-center mx-auto mb-4">
               <Calendar className="w-10 h-10 text-on-surface-variant" />
@@ -296,17 +305,19 @@ export default function BookingsPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {vm.filtered.map((booking, i) => (
+            {vm.groupedOrders.map((order, i) => (
               <motion.div
-                key={booking.id}
+                key={order.orderId}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
               >
                 <BookingCard
-                  booking={booking}
+                  booking={order.primary}
+                  itemCount={order.count}
+                  totalOverride={order.total}
                   onCancel={(id) => vm.cancelBooking(id)}
-                  onClick={() => setSelected(booking)}
+                  onClick={() => (order.count > 1 ? setSelectedOrder(order) : setSelected(order.primary))}
                 />
               </motion.div>
             ))}
@@ -333,7 +344,95 @@ export default function BookingsPage() {
             onCancel={(id) => { vm.cancelBooking(id); setSelected(null) }}
           />
         )}
+        {selectedOrder && (
+          <OrderDetailModal
+            order={selectedOrder}
+            onClose={() => setSelectedOrder(null)}
+            onCancel={(id) => vm.cancelBooking(id)}
+          />
+        )}
       </AnimatePresence>
     </>
+  )
+}
+
+function OrderDetailModal({ order, onClose, onCancel }: {
+  order: ClientOrder
+  onClose: () => void
+  onCancel: (id: string) => void
+}) {
+  const code = order.primary.accessCode
+  return (
+    <div
+      className="fixed inset-0 z-[90] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <motion.div
+        initial={{ y: '100%', opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: '100%', opacity: 0 }}
+        transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+        className="bg-surface w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden max-h-[92dvh] flex flex-col"
+      >
+        <div className="px-5 py-4 flex items-center justify-between border-b border-outline-variant/20">
+          <div>
+            <h2 className="font-headline text-base font-bold text-on-surface">Meu Pedido</h2>
+            <p className="font-headline text-xs text-on-surface-variant">
+              {order.count} horários · {formatCurrency(order.total)}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-surface-container rounded-full transition-colors">
+            <X className="w-5 h-5 text-on-surface-variant" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-4 space-y-3">
+          {/* Código único do pedido */}
+          {code && order.primary.status !== 'CANCELLED' && (
+            <div className="bg-surface-container rounded-2xl py-3 flex flex-col items-center">
+              <p className="font-headline text-[10px] text-on-surface-variant uppercase font-bold tracking-widest mb-1">
+                Código de Acesso do Pedido
+              </p>
+              <p className="font-headline text-xl text-primary tracking-[0.2em] font-black uppercase">{code}</p>
+            </div>
+          )}
+
+          {order.bookings.map((b) => {
+            const cfg = STATUS_CONFIG[b.status]
+            const Icon = cfg.icon
+            const d = new Date(String(b.date).slice(0, 10) + 'T12:00:00')
+            return (
+              <div key={b.id} className="bg-surface-container-lowest border border-outline-variant/20 rounded-2xl p-3">
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <p className="font-headline text-sm font-bold text-primary truncate">{b.court.name}</p>
+                  <span className={cn('flex-shrink-0 px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1', cfg.bg, cfg.color)}>
+                    <Icon className="w-2.5 h-2.5" /> {cfg.label}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3 text-xs text-on-surface-variant">
+                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-primary" />{format(d, "dd 'de' MMM", { locale: ptBR })}</span>
+                    <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-primary" />{b.startTime}–{b.endTime}</span>
+                    <span className="font-bold text-primary">{formatCurrency(Number((b as any).payment?.amount ?? b.totalValue))}</span>
+                  </div>
+                  {['CONFIRMED', 'PENDING'].includes(b.status) && (
+                    <button
+                      onClick={() => onCancel(b.id)}
+                      className="text-red-600 font-headline text-[10px] font-extrabold hover:text-red-700 transition-colors uppercase tracking-wider"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="px-5 py-4 border-t border-outline-variant/20">
+          <Button variant="outline" className="w-full" onClick={onClose}>Fechar</Button>
+        </div>
+      </motion.div>
+    </div>
   )
 }

@@ -13,6 +13,9 @@ interface BookingCardProps {
   booking: BookingWithDetails
   onCancel?: (id: string) => void
   onClick?: () => void
+  // Quando o card representa um pedido com vários horários
+  itemCount?: number
+  totalOverride?: number
 }
 
 const statusConfig: Record<BookingStatus, { icon: any; label: string; color: string; bg: string }> = {
@@ -23,10 +26,12 @@ const statusConfig: Record<BookingStatus, { icon: any; label: string; color: str
   COMPLETED: { icon: CheckCircle, label: 'Realizado', color: 'text-blue-700', bg: 'bg-blue-50' },
 }
 
-export function BookingCard({ booking, onCancel, onClick }: BookingCardProps) {
+export function BookingCard({ booking, onCancel, onClick, itemCount = 1, totalOverride }: BookingCardProps) {
   const status = statusConfig[booking.status]
   const StatusIcon = status.icon
   const bookingDate = new Date(String(booking.date).slice(0, 10) + 'T12:00:00')
+  const isMulti = itemCount > 1
+  const displayTotal = totalOverride ?? booking.totalValue
 
   return (
     <div
@@ -72,31 +77,44 @@ export function BookingCard({ booking, onCancel, onClick }: BookingCardProps) {
               <Calendar className="w-3 h-3 text-primary" />
               {format(bookingDate, "dd 'de' MMM", { locale: ptBR })}
             </span>
-            <span className="flex items-center gap-1 font-medium">
-              <Clock className="w-3 h-3 text-primary" />
-              {booking.startTime}
-            </span>
+            {isMulti ? (
+              <span className="flex items-center gap-1 font-bold text-primary">
+                <Clock className="w-3 h-3" />
+                {itemCount} horários
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 font-medium">
+                <Clock className="w-3 h-3 text-primary" />
+                {booking.startTime}
+              </span>
+            )}
           </div>
         </div>
 
         <div className="flex items-center justify-between gap-2">
           <span className="text-primary font-headline text-sm md:text-base font-extrabold tracking-tight">
-            {formatCurrency(booking.totalValue)}
+            {formatCurrency(displayTotal)}
           </span>
-          
+
           <div className="flex items-center gap-3">
-            {booking.status === 'CONFIRMED' && isToday(bookingDate) && (
+            {!isMulti && booking.status === 'CONFIRMED' && isToday(bookingDate) && (
               <Button size="sm" variant="secondary" className="h-7 md:h-8 px-3 text-[10px] md:text-xs font-bold">
                 Jogar Agora
               </Button>
             )}
-            {['CONFIRMED', 'PENDING'].includes(booking.status) && onCancel && (
+            {/* Em pedido com vários horários o cancelamento é feito no modal de detalhes */}
+            {!isMulti && ['CONFIRMED', 'PENDING'].includes(booking.status) && onCancel && (
               <button
                 onClick={(e) => { e.stopPropagation(); onCancel(booking.id) }}
                 className="text-red-600 font-headline text-[10px] md:text-xs font-extrabold hover:text-red-700 transition-colors uppercase tracking-wider"
               >
                 Cancelar
               </button>
+            )}
+            {isMulti && (
+              <span className="text-on-surface-variant font-headline text-[10px] md:text-xs font-bold uppercase tracking-wider">
+                Ver pedido →
+              </span>
             )}
           </div>
         </div>

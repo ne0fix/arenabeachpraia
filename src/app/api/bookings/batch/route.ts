@@ -79,8 +79,10 @@ export async function POST(req: Request) {
   })
   const totalAmount = enriched.reduce((s, i) => s + i.amount, 0)
 
-  // orderId comum: unifica todos os horários deste checkout em um único pedido
+  // orderId + accessCode comuns: unificam todos os horários deste checkout em
+  // um único pedido (como um carrinho de e-commerce: 1 pedido, vários itens).
   const orderId = randomUUID()
+  const accessCode = generateAccessCode()
 
   // Criar todos os bookings em transação
   const bookings = await prisma.$transaction(
@@ -95,7 +97,7 @@ export async function POST(req: Request) {
           durationHours: d.duration,
           totalValue: d.amount,
           status: 'PENDING',
-          accessCode: generateAccessCode(),
+          accessCode,
           orderId,
           sport: d.sport ?? null,
         },

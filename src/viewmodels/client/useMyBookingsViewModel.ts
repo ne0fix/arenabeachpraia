@@ -112,6 +112,33 @@ export function useMyBookingsViewModel() {
     return true
   })
 
+  // Agrupa os horários filtrados por pedido (orderId). Cada pedido = um checkout
+  // (vários horários) com um único código de acesso, como um carrinho de e-commerce.
+  const groupedOrders = useMemo(() => {
+    const map = new Map<string, BookingWithDetails[]>()
+    for (const b of filtered) {
+      const key = b.orderId ?? b.id
+      const arr = map.get(key)
+      if (arr) arr.push(b)
+      else map.set(key, [b])
+    }
+    return Array.from(map.entries())
+      .map(([orderId, items]) => {
+        const sorted = [...items].sort(
+          (a, b) => +new Date(a.date) - +new Date(b.date) || a.startTime.localeCompare(b.startTime)
+        )
+        return {
+          orderId,
+          bookings: sorted,
+          primary: sorted[0],
+          count: items.length,
+          total: items.reduce((s, b) => s + Number((b as any).payment?.amount ?? b.totalValue), 0),
+          createdAt: items.reduce((min, b) => (b.createdAt < min ? b.createdAt : min), items[0].createdAt),
+        }
+      })
+      .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
+  }, [filtered])
+
   const { mutateAsync: cancelBooking, isPending: cancelling } = useMutation({
     mutationFn: async (bookingId: string) => {
       const res = await fetch(`/api/bookings/${bookingId}/cancel`, {
@@ -125,5 +152,5 @@ export function useMyBookingsViewModel() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['my-bookings', userId] }),
   })
 
-  return { filtered, isLoading, filter, setFilter, cancelBooking, cancelling, pendingPixGroups }
+  return { filtered, groupedOrders, isLoading, filter, setFilter, cancelBooking, cancelling, pendingPixGroups }
 }

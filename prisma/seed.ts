@@ -116,7 +116,7 @@ async function main() {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const existingBooking1 = await prisma.booking.findUnique({
+  const existingBooking1 = await prisma.booking.findFirst({
     where: { accessCode: 'AB-1234-DEMO01' },
   })
 
@@ -149,7 +149,7 @@ async function main() {
   const tomorrow = new Date(today)
   tomorrow.setDate(tomorrow.getDate() + 1)
 
-  const existingBooking2 = await prisma.booking.findUnique({
+  const existingBooking2 = await prisma.booking.findFirst({
     where: { accessCode: 'AB-5678-DEMO02' },
   })
 
