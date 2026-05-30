@@ -160,11 +160,33 @@ function OrderDetailModal({
   const paid = order.paymentStatus === 'APPROVED'
   const hasPartialRefund = order.paymentStatus === 'PARTIAL_REFUND'
   const refundedAmount = order.refundedAmount ?? 0
-
-  const hasActiveBookings = order.bookings.some((b) =>
-    ['CONFIRMED', 'PENDING'].includes(b.status)
-  )
+  const hasActiveBookings = order.bookings.some((b) => ['CONFIRMED', 'PENDING'].includes(b.status))
   const isPending = order.paymentStatus !== 'APPROVED' && hasActiveBookings
+
+  // Pix pendente — dados computados uma única vez
+  const isPixPending = order.paymentMethod === 'PIX' && order.paymentStatus === 'PENDING'
+  const pixBooking = order.bookings.find(b => (b as any).payment?.pixQrCode)
+  const pixQrCode = (pixBooking as any)?.payment?.pixQrCode as string | null
+  const pixQrCodeBase64 = (pixBooking as any)?.payment?.pixQrCodeBase64 as string | null
+  const pixExpiration = (pixBooking as any)?.payment?.pixExpiration as string | null
+  const expiresAt = pixExpiration
+    ? format(new Date(pixExpiration), "dd/MM 'às' HH:mm", { locale: ptBR })
+    : '30 min'
+  const activeBookings = order.bookings.filter(b => b.status !== 'CANCELLED')
+  const slotLines = activeBookings.map(b => `• ${b.court.name} — ${fmtDate(b.date)} às ${b.startTime}`).join('\n')
+  const pixTotal = formatCurrency(order.activeValue ?? order.totalValue)
+  const waMsg = encodeURIComponent(
+    `Olá ${order.user.name.split(' ')[0]}! 🏖️\n\n` +
+    `Segue o código PIX para confirmar sua reserva na *Arena Beach Serra*:\n\n` +
+    `${pixQrCode}\n\n` +
+    `*Horários:*\n${slotLines}\n\n` +
+    `*Total:* ${pixTotal}\n` +
+    `*Válido até:* ${expiresAt}\n\n` +
+    `Após o pagamento, sua reserva é confirmada automaticamente. ✅`
+  )
+  const phone = (order.user.phone ?? '').replace(/\D/g, '')
+  const waLink = phone ? `https://wa.me/55${phone}?text=${waMsg}` : `https://wa.me/?text=${waMsg}`
+  const showPixPanel = isPixPending && !!pixQrCode
 
   const handleConfirm = async () => {
     setConfirmingOrder(true)
@@ -177,6 +199,160 @@ function OrderDetailModal({
     setConfirmCancelAll(false)
     try { await onCancelOrder(order) } finally { setCancellingOrder(false) }
   }
+
+  // Bloco de resumo reutilizado nas duas variantes de layout
+  const summaryGrid = (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="bg-surface-container rounded-xl px-3 py-2.5">
+        <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold flex items-center gap-1">
+          <Hash className="w-3 h-3" /> Nº do Pedido
+        </p>
+        <p className="font-headline text-sm text-on-surface font-bold mt-0.5">{order.accessCode}</p>
+      </div>
+      <div className="bg-surface-container rounded-xl px-3 py-2.5">
+        <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold flex items-center gap-1">
+          <CreditCard className="w-3 h-3" /> Pagamento
+        </p>
+        <p className="font-headline text-sm text-on-surface font-bold mt-0.5">
+          {order.paymentMethod ? paymentLabel[order.paymentMethod] : '—'}
+        </p>
+      </div>
+      <div className={`rounded-xl px-3 py-2.5 ${hasPartialRefund ? 'bg-amber-50 border border-amber-200' : 'bg-surface-container'}`}>
+        <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold flex items-center gap-1">
+          {paid ? <CheckCircle2 className="w-3 h-3 text-green-600" /> : hasPartialRefund ? <CheckCircle2 className="w-3 h-3 text-amber-600" /> : <Clock className="w-3 h-3 text-amber-600" />}
+          Status
+        </p>
+        <p className={`font-headline text-sm font-bold mt-0.5 ${paid ? 'text-green-700' : hasPartialRefund ? 'text-amber-700' : 'text-amber-700'}`}>
+          {order.paymentStatus ? (paymentStatusLabel[order.paymentStatus] ?? order.paymentStatus) : '—'}
+        </p>
+      </div>
+      <div className="bg-surface-container rounded-xl px-3 py-2.5">
+        <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">
+          {refundedAmount > 0 ? 'Valor Ativo' : 'Total'}
+        </p>
+        <p className="font-headline text-sm text-primary font-bold mt-0.5">
+          {formatCurrency(order.activeValue ?? order.totalValue)}
+        </p>
+      </div>
+    </div>
+  )
+
+  const refundRow = refundedAmount > 0 && (
+    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between">
+      <div>
+        <p className="font-headline text-[10px] uppercase tracking-widest text-amber-700 font-bold">Valor Original</p>
+        <p className="font-headline text-sm text-on-surface-variant line-through">{formatCurrency(order.totalValue)}</p>
+      </div>
+      <div className="text-right">
+        <p className="font-headline text-[10px] uppercase tracking-widest text-amber-700 font-bold">Estornado</p>
+        <p className="font-headline text-sm text-amber-700 font-bold">− {formatCurrency(refundedAmount)}</p>
+      </div>
+    </div>
+  )
+
+  const gatewayRow = order.gatewayId && (
+    <p className="font-headline text-[10px] text-on-surface-variant">
+      ID transação MP: <span className="font-bold">{order.gatewayId}</span>
+    </p>
+  )
+
+  const slotsList = (
+    <div className="space-y-2">
+      <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">
+        {order.bookings.length} {order.bookings.length === 1 ? 'horário' : 'horários'}
+      </p>
+      {order.bookings.map((b) => (
+        <div key={b.id} className="flex items-center justify-between gap-3 bg-surface-container-lowest border border-outline-variant/20 rounded-xl px-3 py-2.5">
+          <div className="min-w-0">
+            <p className="font-headline text-sm font-bold text-on-surface truncate">{b.court.name}</p>
+            <p className="font-headline text-xs text-on-surface-variant">
+              {fmtDate(b.date)} · {b.startTime}–{b.endTime} · {formatCurrency(Number(b.payment?.amount ?? b.totalValue))}
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <Badge variant={statusVariant[b.status]}>{statusLabel[b.status]}</Badge>
+            <Link
+              href={`/admin/bookings/${b.id}`}
+              className="p-1.5 hover:bg-surface-container rounded-lg transition-colors text-on-surface-variant hover:text-primary"
+              title="Abrir reserva"
+            >
+              <Eye className="w-4 h-4" />
+            </Link>
+            {['CONFIRMED', 'PENDING'].includes(b.status) && (
+              <button
+                onClick={() => onCancel(b)}
+                className="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-on-surface-variant hover:text-red-600"
+                title="Cancelar horário"
+              >
+                <XCircle className="w-4 h-4" />
+              </button>
+            )}
+            {b.status === 'CANCELLED' && b.payment?.status === 'APPROVED' && (
+              <button
+                onClick={() => onRefund(b)}
+                className="p-1.5 hover:bg-amber-50 rounded-lg transition-colors text-on-surface-variant hover:text-amber-600"
+                title="Estornar"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+
+  const footer = (isPending || hasActiveBookings) && (
+    <div className="border-t border-outline-variant/20 px-6 py-4 space-y-2">
+      {isPending && (
+        <button
+          onClick={handleConfirm}
+          disabled={confirmingOrder || cancellingOrder}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-green-600 text-white font-headline text-sm font-bold hover:bg-green-700 active:scale-[0.98] transition-all disabled:opacity-50"
+        >
+          {confirmingOrder
+            ? <><Loader2 className="w-4 h-4 animate-spin" /> Confirmando...</>
+            : <><BadgeCheck className="w-4 h-4" /> Confirmar Pagamento Manualmente</>
+          }
+        </button>
+      )}
+      {hasActiveBookings && (
+        confirmCancelAll ? (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3 space-y-2">
+            <p className="font-headline text-xs text-red-700 font-bold text-center">
+              Cancelar todos os horários{paid ? ' e estornar todos os valores' : ''}?
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmCancelAll(false)}
+                className="flex-1 py-2 rounded-lg border border-outline-variant/40 font-headline text-xs font-bold text-on-surface-variant hover:bg-surface-container transition-all"
+              >
+                Não
+              </button>
+              <button
+                onClick={handleCancelAll}
+                disabled={cancellingOrder}
+                className="flex-1 py-2 rounded-lg bg-red-600 text-white font-headline text-xs font-bold hover:bg-red-700 transition-all disabled:opacity-50"
+              >
+                {cancellingOrder ? 'Cancelando...' : 'Sim, cancelar tudo'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={handleCancelAll}
+            disabled={confirmingOrder || cancellingOrder}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 font-headline text-sm font-bold hover:bg-red-100 active:scale-[0.98] transition-all disabled:opacity-50"
+          >
+            {cancellingOrder
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Cancelando...</>
+              : <><Trash2 className="w-4 h-4" /> Cancelar Pedido{paid ? ' + Estornar Tudo' : ''}</>
+            }
+          </button>
+        )
+      )}
+    </div>
+  )
 
   return (
     <motion.div
@@ -191,11 +367,11 @@ function OrderDetailModal({
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 40, opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="bg-surface w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+        className={`bg-surface w-full ${showPixPanel ? 'max-w-2xl' : 'max-w-lg'} rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/20">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/20 flex-shrink-0">
           <div>
             <h2 className="font-headline text-base font-bold text-on-surface">Pedido</h2>
             <p className="font-headline text-xs text-on-surface-variant">{order.user.name} · {order.user.email}</p>
@@ -205,206 +381,45 @@ function OrderDetailModal({
           </button>
         </div>
 
-        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5" onClick={(e) => { if (confirmCancelAll) { setConfirmCancelAll(false); e.stopPropagation() } }}>
-          {/* Resumo do pedido */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-surface-container rounded-xl px-3 py-2.5">
-              <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold flex items-center gap-1">
-                <Hash className="w-3 h-3" /> Nº do Pedido
-              </p>
-              <p className="font-headline text-sm text-on-surface font-bold mt-0.5">{order.accessCode}</p>
-            </div>
-            <div className="bg-surface-container rounded-xl px-3 py-2.5">
-              <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold flex items-center gap-1">
-                <CreditCard className="w-3 h-3" /> Pagamento
-              </p>
-              <p className="font-headline text-sm text-on-surface font-bold mt-0.5">
-                {order.paymentMethod ? paymentLabel[order.paymentMethod] : '—'}
-              </p>
-            </div>
-            <div className={`rounded-xl px-3 py-2.5 ${hasPartialRefund ? 'bg-amber-50 border border-amber-200' : 'bg-surface-container'}`}>
-              <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold flex items-center gap-1">
-                {paid ? <CheckCircle2 className="w-3 h-3 text-green-600" /> : hasPartialRefund ? <CheckCircle2 className="w-3 h-3 text-amber-600" /> : <Clock className="w-3 h-3 text-amber-600" />}
-                Status
-              </p>
-              <p className={`font-headline text-sm font-bold mt-0.5 ${paid ? 'text-green-700' : hasPartialRefund ? 'text-amber-700' : 'text-amber-700'}`}>
-                {order.paymentStatus ? (paymentStatusLabel[order.paymentStatus] ?? order.paymentStatus) : '—'}
-              </p>
-            </div>
-            <div className="bg-surface-container rounded-xl px-3 py-2.5">
-              <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">
-                {refundedAmount > 0 ? 'Valor Ativo' : 'Total'}
-              </p>
-              <p className="font-headline text-sm text-primary font-bold mt-0.5">
-                {formatCurrency(order.activeValue ?? order.totalValue)}
-              </p>
+        {showPixPanel ? (
+          /* ── Layout 2 colunas: info + horários | Pix QR ── */
+          <div
+            className="overflow-y-auto flex-1 px-6 py-5"
+            onClick={(e) => { if (confirmCancelAll) { setConfirmCancelAll(false); e.stopPropagation() } }}
+          >
+            <div className="grid grid-cols-2 gap-5 items-start">
+              {/* Coluna esquerda: resumo + horários */}
+              <div className="space-y-4">
+                {summaryGrid}
+                {refundRow}
+                {gatewayRow}
+                {slotsList}
+              </div>
+              {/* Coluna direita: QR Code Pix */}
+              <div className="sticky top-0">
+                <PixPanel
+                  pixQrCode={pixQrCode!}
+                  pixQrCodeBase64={pixQrCodeBase64}
+                  expiresAt={expiresAt}
+                  waLink={waLink}
+                />
+              </div>
             </div>
           </div>
-
-          {/* Linha de estorno quando há estorno parcial ou total */}
-          {refundedAmount > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between">
-              <div>
-                <p className="font-headline text-[10px] uppercase tracking-widest text-amber-700 font-bold">Valor Original</p>
-                <p className="font-headline text-sm text-on-surface-variant line-through">{formatCurrency(order.totalValue)}</p>
-              </div>
-              <div className="text-right">
-                <p className="font-headline text-[10px] uppercase tracking-widest text-amber-700 font-bold">Estornado</p>
-                <p className="font-headline text-sm text-amber-700 font-bold">− {formatCurrency(refundedAmount)}</p>
-              </div>
-            </div>
-          )}
-
-          {order.gatewayId && (
-            <p className="font-headline text-[10px] text-on-surface-variant">
-              ID transação MP: <span className="font-bold">{order.gatewayId}</span>
-            </p>
-          )}
-
-          {/* ── PIX aguardando pagamento — chave + QR + botão WhatsApp ── */}
-          {order.paymentMethod === 'PIX' && order.paymentStatus === 'PENDING' && (() => {
-            const pixBooking = order.bookings.find(b => (b as any).payment?.pixQrCode)
-            const pixQrCode       = (pixBooking as any)?.payment?.pixQrCode as string | null
-            const pixQrCodeBase64 = (pixBooking as any)?.payment?.pixQrCodeBase64 as string | null
-            const pixExpiration   = (pixBooking as any)?.payment?.pixExpiration as string | null
-            if (!pixQrCode) return null
-
-            // Monta a lista de horários para a mensagem do WhatsApp
-            const activeBookings = order.bookings.filter(b => b.status !== 'CANCELLED')
-            const slotLines = activeBookings.map(b =>
-              `• ${b.court.name} — ${fmtDate(b.date)} às ${b.startTime}`
-            ).join('\n')
-
-            const total = formatCurrency(order.activeValue ?? order.totalValue)
-            const expiresAt = pixExpiration
-              ? format(new Date(pixExpiration), "dd/MM 'às' HH:mm", { locale: ptBR })
-              : '30 min'
-
-            const waMsg = encodeURIComponent(
-              `Olá ${order.user.name.split(' ')[0]}! 🏖️\n\n` +
-              `Segue o código PIX para confirmar sua reserva na *Arena Beach Serra*:\n\n` +
-              `${pixQrCode}\n\n` +
-              `*Horários:*\n${slotLines}\n\n` +
-              `*Total:* ${total}\n` +
-              `*Válido até:* ${expiresAt}\n\n` +
-              `Após o pagamento, sua reserva é confirmada automaticamente. ✅`
-            )
-            const phone = (order.user.phone ?? '').replace(/\D/g, '')
-            const waLink = phone
-              ? `https://wa.me/55${phone}?text=${waMsg}`
-              : `https://wa.me/?text=${waMsg}`
-
-            return (
-              <PixPanel
-                pixQrCode={pixQrCode}
-                pixQrCodeBase64={pixQrCodeBase64}
-                expiresAt={expiresAt}
-                waLink={waLink}
-              />
-            )
-          })()}
-
-          {/* Horários do pedido */}
-          <div className="space-y-2">
-            <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">
-              {order.bookings.length} {order.bookings.length === 1 ? 'horário' : 'horários'}
-            </p>
-            {order.bookings.map((b) => (
-              <div key={b.id} className="flex items-center justify-between gap-3 bg-surface-container-lowest border border-outline-variant/20 rounded-xl px-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="font-headline text-sm font-bold text-on-surface truncate">{b.court.name}</p>
-                  <p className="font-headline text-xs text-on-surface-variant">
-                    {fmtDate(b.date)} · {b.startTime}–{b.endTime} · {formatCurrency(Number(b.payment?.amount ?? b.totalValue))}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <Badge variant={statusVariant[b.status]}>{statusLabel[b.status]}</Badge>
-                  <Link
-                    href={`/admin/bookings/${b.id}`}
-                    className="p-1.5 hover:bg-surface-container rounded-lg transition-colors text-on-surface-variant hover:text-primary"
-                    title="Abrir reserva"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </Link>
-                  {['CONFIRMED', 'PENDING'].includes(b.status) && (
-                    <button
-                      onClick={() => onCancel(b)}
-                      className="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-on-surface-variant hover:text-red-600"
-                      title="Cancelar horário"
-                    >
-                      <XCircle className="w-4 h-4" />
-                    </button>
-                  )}
-                  {b.status === 'CANCELLED' && b.payment?.status === 'APPROVED' && (
-                    <button
-                      onClick={() => onRefund(b)}
-                      className="p-1.5 hover:bg-amber-50 rounded-lg transition-colors text-on-surface-variant hover:text-amber-600"
-                      title="Estornar"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Footer: ações do pedido inteiro ── */}
-        {(isPending || hasActiveBookings) && (
-          <div className="border-t border-outline-variant/20 px-6 py-4 space-y-2">
-            {/* Confirmar pagamento manualmente */}
-            {isPending && (
-              <button
-                onClick={handleConfirm}
-                disabled={confirmingOrder || cancellingOrder}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-green-600 text-white font-headline text-sm font-bold hover:bg-green-700 active:scale-[0.98] transition-all disabled:opacity-50"
-              >
-                {confirmingOrder
-                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Confirmando...</>
-                  : <><BadgeCheck className="w-4 h-4" /> Confirmar Pagamento Manualmente</>
-                }
-              </button>
-            )}
-
-            {/* Cancelar pedido inteiro + estornar tudo */}
-            {hasActiveBookings && (
-              confirmCancelAll ? (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-3 space-y-2">
-                  <p className="font-headline text-xs text-red-700 font-bold text-center">
-                    Cancelar todos os horários{paid ? ' e estornar todos os valores' : ''}?
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setConfirmCancelAll(false)}
-                      className="flex-1 py-2 rounded-lg border border-outline-variant/40 font-headline text-xs font-bold text-on-surface-variant hover:bg-surface-container transition-all"
-                    >
-                      Não
-                    </button>
-                    <button
-                      onClick={handleCancelAll}
-                      disabled={cancellingOrder}
-                      className="flex-1 py-2 rounded-lg bg-red-600 text-white font-headline text-xs font-bold hover:bg-red-700 transition-all disabled:opacity-50"
-                    >
-                      {cancellingOrder ? 'Cancelando...' : 'Sim, cancelar tudo'}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={handleCancelAll}
-                  disabled={confirmingOrder || cancellingOrder}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 font-headline text-sm font-bold hover:bg-red-100 active:scale-[0.98] transition-all disabled:opacity-50"
-                >
-                  {cancellingOrder
-                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Cancelando...</>
-                    : <><Trash2 className="w-4 h-4" /> Cancelar Pedido{paid ? ' + Estornar Tudo' : ''}</>
-                  }
-                </button>
-              )
-            )}
+        ) : (
+          /* ── Layout coluna única: demais métodos ── */
+          <div
+            className="overflow-y-auto flex-1 px-6 py-5 space-y-5"
+            onClick={(e) => { if (confirmCancelAll) { setConfirmCancelAll(false); e.stopPropagation() } }}
+          >
+            {summaryGrid}
+            {refundRow}
+            {gatewayRow}
+            {slotsList}
           </div>
         )}
+
+        {footer}
       </motion.div>
     </motion.div>
   )
