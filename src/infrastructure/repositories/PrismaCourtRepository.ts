@@ -50,10 +50,12 @@ export class PrismaCourtRepository implements ICourtRepository {
       }),
     ])
 
-    // Verifica bloqueios por período
-    const hasAllDay  = unavailabilities.some((u) => u.period === 'ALL_DAY')
-    const hasMorning = unavailabilities.some((u) => u.period === 'MORNING')
-    const hasAfternoon = unavailabilities.some((u) => u.period === 'AFTERNOON')
+    // Verifica bloqueios por período.
+    // period ausente/null é tratado como ALL_DAY para retrocompatibilidade
+    // com registros antigos e mocks de teste.
+    const hasAllDay    = unavailabilities.some((u) => !(u as any).period || (u as any).period === 'ALL_DAY')
+    const hasMorning   = unavailabilities.some((u) => (u as any).period === 'MORNING')
+    const hasAfternoon = unavailabilities.some((u) => (u as any).period === 'AFTERNOON')
 
     if (hasAllDay) {
       return { date, slots: [], blockedPeriod: 'ALL_DAY' }
