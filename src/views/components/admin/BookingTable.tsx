@@ -74,38 +74,38 @@ function PixPanel({
 
   return (
     <div className="bg-green-50 border border-green-200 rounded-2xl overflow-hidden">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-green-600 to-emerald-500 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <QrCode className="w-4 h-4 text-white" />
-          <span className="font-headline text-white font-bold text-sm">PIX Aguardando Pagamento</span>
+      {/* Header compacto — uma linha */}
+      <div className="bg-gradient-to-r from-green-600 to-emerald-500 px-3 py-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <QrCode className="w-3.5 h-3.5 text-white flex-shrink-0" />
+          <span className="font-headline text-white font-bold text-xs whitespace-nowrap">PIX Aguardando</span>
         </div>
-        <span className="font-headline text-[10px] text-white/80 bg-white/20 px-2 py-0.5 rounded-full font-bold">
+        <span className="font-headline text-[9px] text-white/90 bg-white/20 px-2 py-0.5 rounded-full font-bold whitespace-nowrap flex-shrink-0">
           Válido até {expiresAt}
         </span>
       </div>
 
-      <div className="p-4 space-y-3">
+      <div className="p-3 space-y-2.5">
         {/* QR Code */}
         {pixQrCodeBase64 && (
           <div className="flex justify-center">
-            <div className="bg-white p-3 rounded-xl shadow border border-green-100">
+            <div className="bg-white p-2 rounded-xl shadow border border-green-100">
               <Image
                 src={`data:image/png;base64,${pixQrCodeBase64}`}
                 alt="QR Code PIX"
-                width={160}
-                height={160}
+                width={140}
+                height={140}
               />
             </div>
           </div>
         )}
 
         {/* Chave copia e cola */}
-        <div className="bg-white border border-green-200 rounded-xl p-3">
-          <p className="font-headline text-[9px] text-green-700 uppercase tracking-widest font-bold mb-1.5">
+        <div className="bg-white border border-green-200 rounded-xl p-2.5">
+          <p className="font-headline text-[9px] text-green-700 uppercase tracking-widest font-bold mb-1">
             PIX Copia e Cola
           </p>
-          <p className="font-headline text-[10px] text-on-surface-variant break-all leading-relaxed line-clamp-3">
+          <p className="font-headline text-[10px] text-on-surface-variant break-all leading-snug line-clamp-2">
             {pixQrCode}
           </p>
         </div>
@@ -115,20 +115,20 @@ function PixPanel({
           <button
             type="button"
             onClick={copy}
-            className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-headline text-[11px] font-bold transition-all ${
+            className={`flex items-center justify-center gap-1.5 py-2 rounded-xl font-headline text-[11px] font-bold transition-all ${
               copied ? 'bg-green-600 text-white' : 'bg-white border border-green-300 text-green-700 hover:bg-green-50'
             }`}
           >
-            {copied ? <><Check className="w-3.5 h-3.5" /> Copiado!</> : <><Copy className="w-3.5 h-3.5" /> Copiar Chave</>}
+            {copied ? <><Check className="w-3.5 h-3.5" /> Copiado!</> : <><Copy className="w-3.5 h-3.5" /> Copiar</>}
           </button>
           <a
             href={waLink}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#25D366] text-white font-headline text-[11px] font-bold hover:bg-[#1ebe5b] transition-all"
+            className="flex items-center justify-center gap-1.5 py-2 rounded-xl bg-[#25D366] text-white font-headline text-[11px] font-bold hover:bg-[#1ebe5b] transition-all"
           >
             <MessageCircle className="w-3.5 h-3.5" />
-            Enviar WhatsApp
+            WhatsApp
           </a>
         </div>
       </div>
