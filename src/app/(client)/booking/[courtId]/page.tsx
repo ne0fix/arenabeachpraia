@@ -1,7 +1,7 @@
 'use client'
 
-import { use } from 'react'
-import { ArrowLeft, Users, ShoppingCart, Clock, AlertCircle, Check, ChevronRight, Ban } from 'lucide-react'
+import { use, useRef, useEffect } from 'react'
+import { ArrowLeft, Users, ShoppingCart, Clock, AlertCircle, Check, ChevronLeft, ChevronRight, Ban } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { motion, AnimatePresence } from 'motion/react'
@@ -19,6 +19,20 @@ interface BookingPageProps {
 export default function BookingPage({ params }: BookingPageProps) {
   const { courtId } = use(params)
   const vm = useBookingViewModel(courtId)
+  const dateScrollRef = useRef<HTMLDivElement>(null)
+
+  // Converte scroll vertical do mouse em scroll horizontal no carrossel de datas
+  useEffect(() => {
+    const el = dateScrollRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY === 0) return
+      e.preventDefault()
+      el.scrollLeft += e.deltaY
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
 
   if (vm.loadingCourt) return <Loader />
   if (!vm.court) return <div className="p-8 text-center font-headline">Quadra não encontrada.</div>
@@ -68,7 +82,21 @@ export default function BookingPage({ params }: BookingPageProps) {
             </div>
           </div>
           <div className="relative -mx-4 md:mx-0">
-            <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 court-scrollbar snap-x px-4 md:px-0">
+            {/* Seta esquerda — desktop */}
+            <button
+              onClick={() => dateScrollRef.current?.scrollBy({ left: -320, behavior: 'smooth' })}
+              aria-label="Datas anteriores"
+              className="hidden md:flex absolute left-0 inset-y-0 z-10 items-center justify-center w-10 bg-gradient-to-r from-background to-transparent"
+            >
+              <span className="w-8 h-8 flex items-center justify-center bg-surface border border-outline-variant/30 rounded-full shadow-sm hover:border-primary/50 hover:bg-surface-container transition-all">
+                <ChevronLeft className="w-4 h-4 text-primary" />
+              </span>
+            </button>
+
+            <div
+              ref={dateScrollRef}
+              className="flex gap-3 md:gap-4 overflow-x-auto pb-4 court-scrollbar snap-x px-4 md:px-10"
+            >
               {vm.days.map((day) => {
                 const isActive = format(day, 'yyyy-MM-dd') === format(vm.selectedDate, 'yyyy-MM-dd')
                 return (
@@ -93,6 +121,17 @@ export default function BookingPage({ params }: BookingPageProps) {
                 )
               })}
             </div>
+
+            {/* Seta direita — desktop */}
+            <button
+              onClick={() => dateScrollRef.current?.scrollBy({ left: 320, behavior: 'smooth' })}
+              aria-label="Próximas datas"
+              className="hidden md:flex absolute right-0 inset-y-0 z-10 items-center justify-center w-10 bg-gradient-to-l from-background to-transparent"
+            >
+              <span className="w-8 h-8 flex items-center justify-center bg-surface border border-outline-variant/30 rounded-full shadow-sm hover:border-primary/50 hover:bg-surface-container transition-all">
+                <ChevronRight className="w-4 h-4 text-primary" />
+              </span>
+            </button>
           </div>
         </section>
 
