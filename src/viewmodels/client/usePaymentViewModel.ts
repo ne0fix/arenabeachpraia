@@ -88,7 +88,10 @@ export function usePaymentViewModel() {
           sport,
         }),
       })
-      if (!res.ok) throw new Error('Erro ao criar agendamento')
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.message ?? 'Erro ao processar pagamento')
+      }
       return res.json() as Promise<{ booking: { id: string }; pixQrCode?: string; pixQrCodeBase64?: string }>
     },
     onSuccess: (data) => {
@@ -105,8 +108,9 @@ export function usePaymentViewModel() {
         router.push(`/booking-success?bookingId=${data.booking.id}${cartParam}`)
       }
     },
-    onError: () => {
-      router.push('/booking-error?code=PAYMENT_FAILED')
+    onError: (error: any) => {
+      const msg = error?.message ?? ''
+      router.push(`/booking-error?code=PAYMENT_FAILED${msg ? `&message=${encodeURIComponent(msg)}` : ''}`)
     },
   })
 

@@ -55,8 +55,20 @@ export async function POST(req: Request) {
     return NextResponse.json(output, { status: 201 })
   } catch (e: any) {
     if (e instanceof AppError) return NextResponse.json({ message: e.message, code: e.code }, { status: e.statusCode })
-    return NextResponse.json({ message: 'Erro interno' }, { status: 500 })
+    const mpDetail = extractMpServerError(e)
+    console.error('[POST /api/bookings] error:', mpDetail, e)
+    return NextResponse.json({ message: mpDetail || 'Erro interno ao processar pagamento' }, { status: 500 })
   }
+}
+
+function extractMpServerError(e: any): string {
+  if (!e) return ''
+  if (typeof e === 'string') return e
+  if (Array.isArray(e?.cause) && e.cause.length)
+    return e.cause.map((c: any) => c?.description ?? c?.message ?? c?.code).filter(Boolean).join('; ')
+  if (Array.isArray(e?.error?.causes) && e.error.causes.length)
+    return e.error.causes.map((c: any) => c?.description ?? c?.message).filter(Boolean).join('; ')
+  return e?.message ?? e?.error ?? ''
 }
 
 export async function GET(req: Request) {
