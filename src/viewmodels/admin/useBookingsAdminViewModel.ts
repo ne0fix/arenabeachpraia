@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import type { BookingWithDetails, BookingStatus } from '@/models/entities/Booking'
+import type { AdminOrder, BookingStatus } from '@/models/entities/Booking'
 
 interface Filters {
   status?: BookingStatus
@@ -22,7 +22,7 @@ export function useBookingsAdminViewModel() {
   params.set('page', String(filters.page))
   params.set('limit', '20')
 
-  const { data, isLoading, refetch } = useQuery<{ bookings: BookingWithDetails[]; total: number }>({
+  const { data, isLoading, refetch } = useQuery<{ orders: AdminOrder[]; total: number }>({
     queryKey: ['admin-bookings', filters],
     queryFn: () => fetch(`/api/bookings?${params.toString()}`).then((r) => r.json()),
   })
@@ -37,7 +37,7 @@ export function useBookingsAdminViewModel() {
   const prevPage = () => setFilters((p) => ({ ...p, page: Math.max(p.page - 1, 1) }))
 
   return {
-    bookings: data?.bookings ?? [],
+    orders: data?.orders ?? [],
     total: data?.total ?? 0,
     totalPages,
     filters,

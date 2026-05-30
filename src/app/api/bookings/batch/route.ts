@@ -7,6 +7,7 @@ import { generateAccessCode, calculateDuration } from '@/core/utils/helpers'
 import { emitToRoom } from '@/lib/socket-server'
 import { format, parse } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { randomUUID } from 'crypto'
 
 const batchSchema = z.object({
   items: z.array(z.object({
@@ -78,6 +79,9 @@ export async function POST(req: Request) {
   })
   const totalAmount = enriched.reduce((s, i) => s + i.amount, 0)
 
+  // orderId comum: unifica todos os horários deste checkout em um único pedido
+  const orderId = randomUUID()
+
   // Criar todos os bookings em transação
   const bookings = await prisma.$transaction(
     enriched.map(d =>
@@ -92,15 +96,17 @@ export async function POST(req: Request) {
           totalValue: d.amount,
           status: 'PENDING',
           accessCode: generateAccessCode(),
+          orderId,
           sport: d.sport ?? null,
         },
       })
     )
   )
 
-  // Descrição combinada para o MercadoPago (máx 255 chars)
-  const descLines = enriched.map(d => `${d.court.name} ${d.dateFormatted} ${d.startTime}–${d.endTime}`)
-  const description = descLines.join(' + ').slice(0, 255)
+  // Descrição combinada para o MercadoPago (máx 255 chars) — detalha o pedido inteiro
+  // para constar corretamente em "Vendas" no painel do Mercado Pago.
+  const descLines = enriched.map(d => `${d.court.name} ${d.dateFormatted} ${d.startTime}-${d.endTime}`)
+  const description = `Arena Beach Serra - ${enriched.length} reservas: ${descLines.join(' | ')}`.slice(0, 255)
 
   const mp = await MercadoPagoService.create()
 

@@ -66,7 +66,7 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url)
   const repo = new PrismaBookingRepository()
-  const result = await repo.findAll({
+  const result = await repo.findOrdersForAdmin({
     status: searchParams.get('status') as any,
     courtId: searchParams.get('courtId') ?? undefined,
     date: searchParams.get('date') ?? undefined,

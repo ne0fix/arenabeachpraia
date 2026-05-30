@@ -6,6 +6,7 @@ import type { Payment, PaymentMethod } from '@/models/entities/Payment'
 import { BookingError } from '@/core/errors/AppError'
 import { generateAccessCode, calculateDuration, getEndTime } from '@/core/utils/helpers'
 import { MercadoPagoService } from '@/services/MercadoPagoService'
+import { randomUUID } from 'crypto'
 import { format, parse } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -70,6 +71,7 @@ export class CreateBookingUseCase {
       totalValue,
       status: 'PENDING',
       accessCode: generateAccessCode(),
+      orderId: randomUUID(),
       sport: input.sport ?? null,
       notes: null,
       cancelledAt: null,

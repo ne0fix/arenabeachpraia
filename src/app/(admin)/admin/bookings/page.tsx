@@ -61,7 +61,7 @@ export default function AdminBookingsPage() {
         </div>
       </div>
 
-      <BookingTable bookings={vm.bookings} isLoading={vm.isLoading} />
+      <BookingTable orders={vm.orders} isLoading={vm.isLoading} />
 
       {vm.totalPages > 1 && (
         <div className="flex items-center justify-between px-2">

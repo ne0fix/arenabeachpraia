@@ -11,6 +11,7 @@ export interface Booking {
   totalValue: number
   status: BookingStatus
   accessCode: string
+  orderId: string | null
   sport: string | null
   notes: string | null
   cancelledAt: Date | null
@@ -44,4 +45,17 @@ export interface BookingWithDetails extends Booking {
     refundedAt: Date | null
     refundAmount: number | null
   } | null
+}
+
+// Pedido agrupado: um checkout (orderId) com um ou mais horários (bookings).
+export interface AdminOrder {
+  orderId: string
+  createdAt: Date
+  user: { id: string; name: string; email: string; phone: string | null }
+  bookings: BookingWithDetails[]
+  courtNames: string[]
+  totalValue: number
+  paymentMethod: string | null
+  // Status agregado do pedido (ver regra de derivação no repositório)
+  status: BookingStatus
 }

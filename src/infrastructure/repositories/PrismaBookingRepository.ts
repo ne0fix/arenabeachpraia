@@ -1,6 +1,6 @@
 import { prisma } from '@/infrastructure/database/prisma'
 import type { IBookingRepository, ListBookingsFilter } from '@/repositories/IBookingRepository'
-import type { Booking, BookingWithDetails } from '@/models/entities/Booking'
+import type { Booking, BookingWithDetails, AdminOrder, BookingStatus } from '@/models/entities/Booking'
 
 function toEntity(b: any): BookingWithDetails {
   return {
@@ -72,6 +72,62 @@ export class PrismaBookingRepository implements IBookingRepository {
     ])
 
     return { bookings: bookings.map(toEntity), total }
+  }
+
+  async findOrdersForAdmin(filter: ListBookingsFilter): Promise<{ orders: AdminOrder[]; total: number }> {
+    const { page = 1, limit = 20, status, courtId, date } = filter
+    const where: any = {}
+    if (status) where.status = status
+    if (courtId) where.courtId = courtId
+    if (date) where.date = new Date(date + 'T00:00:00')
+
+    // Busca todos os bookings que batem nos filtros e agrupa por orderId.
+    // Bookings antigos sem orderId são tratados como pedido individual (chave = id).
+    const rows = await prisma.booking.findMany({
+      where,
+      include: withDetails,
+      orderBy: [{ createdAt: 'desc' }, { startTime: 'asc' }],
+    })
+
+    const groups = new Map<string, BookingWithDetails[]>()
+    for (const row of rows) {
+      const entity = toEntity(row)
+      const key = entity.orderId ?? entity.id
+      const arr = groups.get(key)
+      if (arr) arr.push(entity)
+      else groups.set(key, [entity])
+    }
+
+    // Prioridade do status agregado: o que mais demanda atenção primeiro
+    const priority: BookingStatus[] = ['PENDING', 'CONFIRMED', 'COMPLETED', 'NO_SHOW', 'CANCELLED']
+    const aggregateStatus = (items: BookingWithDetails[]): BookingStatus => {
+      for (const s of priority) {
+        if (items.some(b => b.status === s)) return s
+      }
+      return items[0].status
+    }
+
+    const allOrders: AdminOrder[] = Array.from(groups.entries()).map(([orderId, items]) => {
+      const sorted = [...items].sort((a, b) => +new Date(a.date) - +new Date(b.date) || a.startTime.localeCompare(b.startTime))
+      const createdAt = items.reduce((min, b) => (b.createdAt < min ? b.createdAt : min), items[0].createdAt)
+      return {
+        orderId,
+        createdAt,
+        user: items[0].user,
+        bookings: sorted,
+        courtNames: Array.from(new Set(items.map(b => b.court.name))),
+        totalValue: items.reduce((sum, b) => sum + Number(b.payment?.amount ?? b.totalValue), 0),
+        paymentMethod: items[0].payment?.method ?? null,
+        status: aggregateStatus(items),
+      }
+    })
+
+    // Ordena pedidos pelo mais recente e pagina por PEDIDO
+    allOrders.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
+    const total = allOrders.length
+    const orders = allOrders.slice((page - 1) * limit, page * limit)
+
+    return { orders, total }
   }
 
   async findByUser(userId: string, filter?: ListBookingsFilter): Promise<{ bookings: BookingWithDetails[]; total: number }> {
