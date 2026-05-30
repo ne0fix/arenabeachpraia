@@ -14,6 +14,17 @@ declare global {
   }
 }
 
+// Detecta bandeira pelo BIN do cartão (fallback para quando o SDK não responde).
+function detectBrandFromBin(cardNumber: string): string {
+  const n = cardNumber.replace(/\D/g, '')
+  if (/^(4011|431274|438935|451416|457393|457631|457632|504175|627780|636297|636368|650[4-9]|6516|6550)/.test(n)) return 'elo'
+  if (/^(606282|3841)/.test(n)) return 'hipercard'
+  if (/^3[47]/.test(n)) return 'amex'
+  if (/^5[1-5]|^2(2[2-9]|[3-6]\d|7[01])/.test(n)) return 'master'
+  if (/^4/.test(n)) return 'visa'
+  return 'visa'
+}
+
 async function waitForMercadoPago(timeoutMs = 5000): Promise<void> {
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
@@ -208,6 +219,17 @@ export function usePaymentViewModel() {
 
       const mp = new window.MercadoPago(publicKey, { locale: 'pt-BR' })
 
+      const cardNum = cardData.cardNumber.replace(/\D/g, '')
+
+      // Detecta a bandeira via SDK do MP (BIN lookup). Fallback para regex local.
+      try {
+        const pmResult = await mp.getPaymentMethods({ bin: cardNum.slice(0, 6) })
+        cardBrand = pmResult?.results?.[0]?.id ?? detectBrandFromBin(cardNum)
+      } catch {
+        cardBrand = detectBrandFromBin(cardNum)
+      }
+      console.log('[MP] cardBrand detectado:', cardBrand)
+
       // Aceita validade com ou sem barra: "MM/AA", "MMAA", "MM/AAAA".
       const expDigits = cardData.expiry.replace(/\D/g, '')
       const month = expDigits.slice(0, 2)
@@ -218,7 +240,7 @@ export function usePaymentViewModel() {
       const cpf = (cardData.cpf ?? '').replace(/\D/g, '')
 
       const tokenResult = await mp.createCardToken({
-        cardNumber: cardData.cardNumber.replace(/\D/g, ''),
+        cardNumber: cardNum,
         cardholderName: cardData.cardHolder,
         cardExpirationMonth: month,
         cardExpirationYear: year,
@@ -235,7 +257,6 @@ export function usePaymentViewModel() {
       }
 
       paymentToken = tokenResult.id
-      cardBrand = tokenResult.card?.payment_method?.id ?? tokenResult.payment_method?.id ?? 'visa'
     } catch (e: any) {
       console.error('[MP] Tokenization error:', e)
       setCardError(extractMpError(e) || 'Não foi possível validar o cartão. Verifique os dados e tente novamente.')
