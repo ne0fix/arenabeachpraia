@@ -137,7 +137,9 @@ export function useMyBookingsViewModel() {
           bookings: sorted,
           primary: sorted[0],
           count: items.length,
-          total: items.reduce((s, b) => s + Number((b as any).payment?.amount ?? b.totalValue), 0),
+          total: items
+            .filter(b => b.status !== 'CANCELLED')
+            .reduce((s, b) => s + Number((b as any).payment?.amount ?? b.totalValue), 0),
           createdAt: items.reduce((min, b) => (b.createdAt < min ? b.createdAt : min), items[0].createdAt),
         }
       })

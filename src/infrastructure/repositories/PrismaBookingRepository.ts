@@ -117,8 +117,28 @@ export class PrismaBookingRepository implements IBookingRepository {
         return a.startTime.localeCompare(b.startTime)
       })
       const createdAt = items.reduce((min, b) => (b.createdAt < min ? b.createdAt : min), items[0].createdAt)
-      // Pagamento do pedido: todos os bookings compartilham o mesmo gateway/método.
       const withPayment = items.find(b => b.payment) ?? items[0]
+
+      // Valores calculados apenas sobre bookings ativos (não cancelados)
+      const activeItems = items.filter(b => b.status !== 'CANCELLED')
+      const activeValue = activeItems.reduce((sum, b) => sum + Number(b.payment?.amount ?? b.totalValue), 0)
+
+      // Valor total original (todos os bookings)
+      const totalValue = items.reduce((sum, b) => sum + Number(b.payment?.amount ?? b.totalValue), 0)
+
+      // Valor já estornado (pagamentos com status REFUNDED)
+      const refundedAmount = items.reduce((sum, b) => sum + Number(b.payment?.refundAmount ?? 0), 0)
+
+      // Status de pagamento agregado: detecta estorno parcial
+      const payments = items.map(b => b.payment).filter(Boolean)
+      const hasApproved = payments.some(p => p!.status === 'APPROVED')
+      const hasRefunded = payments.some(p => p!.status === 'REFUNDED')
+      const hasPending  = payments.some(p => p!.status === 'PENDING')
+      const paymentStatus =
+        hasApproved && hasRefunded ? 'PARTIAL_REFUND'
+        : hasPending && !hasApproved ? 'PENDING'
+        : withPayment.payment?.status ?? null
+
       return {
         orderId,
         accessCode: items[0].accessCode,
@@ -126,9 +146,11 @@ export class PrismaBookingRepository implements IBookingRepository {
         user: items[0].user,
         bookings: sorted,
         courtNames: Array.from(new Set(items.map(b => b.court.name))),
-        totalValue: items.reduce((sum, b) => sum + Number(b.payment?.amount ?? b.totalValue), 0),
+        totalValue,
+        activeValue,
+        refundedAmount,
         paymentMethod: withPayment.payment?.method ?? null,
-        paymentStatus: withPayment.payment?.status ?? null,
+        paymentStatus,
         gatewayId: withPayment.payment?.gatewayId ?? null,
         status: aggregateStatus(items),
       }

@@ -76,6 +76,8 @@ function OrderDetailModal({
   const [confirmCancelAll, setConfirmCancelAll] = useState(false)
 
   const paid = order.paymentStatus === 'APPROVED'
+  const hasPartialRefund = order.paymentStatus === 'PARTIAL_REFUND'
+  const refundedAmount = order.refundedAmount ?? 0
 
   const hasActiveBookings = order.bookings.some((b) =>
     ['CONFIRMED', 'PENDING'].includes(b.status)
@@ -138,20 +140,38 @@ function OrderDetailModal({
                 {order.paymentMethod ? paymentLabel[order.paymentMethod] : '—'}
               </p>
             </div>
-            <div className="bg-surface-container rounded-xl px-3 py-2.5">
+            <div className={`rounded-xl px-3 py-2.5 ${hasPartialRefund ? 'bg-amber-50 border border-amber-200' : 'bg-surface-container'}`}>
               <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold flex items-center gap-1">
-                {paid ? <CheckCircle2 className="w-3 h-3 text-green-600" /> : <Clock className="w-3 h-3 text-amber-600" />}
+                {paid ? <CheckCircle2 className="w-3 h-3 text-green-600" /> : hasPartialRefund ? <CheckCircle2 className="w-3 h-3 text-amber-600" /> : <Clock className="w-3 h-3 text-amber-600" />}
                 Status
               </p>
-              <p className={`font-headline text-sm font-bold mt-0.5 ${paid ? 'text-green-700' : 'text-amber-700'}`}>
+              <p className={`font-headline text-sm font-bold mt-0.5 ${paid ? 'text-green-700' : hasPartialRefund ? 'text-amber-700' : 'text-amber-700'}`}>
                 {order.paymentStatus ? (paymentStatusLabel[order.paymentStatus] ?? order.paymentStatus) : '—'}
               </p>
             </div>
             <div className="bg-surface-container rounded-xl px-3 py-2.5">
-              <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Total</p>
-              <p className="font-headline text-sm text-primary font-bold mt-0.5">{formatCurrency(order.totalValue)}</p>
+              <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">
+                {refundedAmount > 0 ? 'Valor Ativo' : 'Total'}
+              </p>
+              <p className="font-headline text-sm text-primary font-bold mt-0.5">
+                {formatCurrency(order.activeValue ?? order.totalValue)}
+              </p>
             </div>
           </div>
+
+          {/* Linha de estorno quando há estorno parcial ou total */}
+          {refundedAmount > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between">
+              <div>
+                <p className="font-headline text-[10px] uppercase tracking-widest text-amber-700 font-bold">Valor Original</p>
+                <p className="font-headline text-sm text-on-surface-variant line-through">{formatCurrency(order.totalValue)}</p>
+              </div>
+              <div className="text-right">
+                <p className="font-headline text-[10px] uppercase tracking-widest text-amber-700 font-bold">Estornado</p>
+                <p className="font-headline text-sm text-amber-700 font-bold">− {formatCurrency(refundedAmount)}</p>
+              </div>
+            </div>
+          )}
 
           {order.gatewayId && (
             <p className="font-headline text-[10px] text-on-surface-variant">
@@ -361,8 +381,13 @@ export function BookingTable({ orders, isLoading, onRefresh }: BookingTableProps
                         <span>{fmtDate(single.date)} · {single.startTime}</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 font-headline text-sm text-primary font-bold whitespace-nowrap">
-                      {formatCurrency(order.totalValue)}
+                    <td className="px-4 py-3 font-headline text-sm font-bold whitespace-nowrap">
+                      <span className="text-primary">{formatCurrency(order.activeValue ?? order.totalValue)}</span>
+                      {(order.refundedAmount ?? 0) > 0 && (
+                        <span className="block font-headline text-[9px] text-amber-600 font-bold">
+                          − {formatCurrency(order.refundedAmount!)} est.
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant={statusVariant[order.status]}>{statusLabel[order.status]}</Badge>

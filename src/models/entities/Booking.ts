@@ -55,7 +55,12 @@ export interface AdminOrder {
   user: { id: string; name: string; email: string; phone: string | null }
   bookings: BookingWithDetails[]
   courtNames: string[]
+  /** Valor pago originalmente (soma de todos os bookings) */
   totalValue: number
+  /** Valor ainda ativo (apenas bookings não cancelados) */
+  activeValue: number
+  /** Total já estornado */
+  refundedAmount: number
   paymentMethod: string | null
   paymentStatus: string | null
   gatewayId: string | null
