@@ -20,42 +20,68 @@ interface BookingTableProps {
 
 const statusVariant: Record<string, any> = {
   CONFIRMED: 'success',
-  PENDING: 'warning',
+  PENDING:   'warning',
   CANCELLED: 'danger',
-  NO_SHOW: 'danger',
+  NO_SHOW:   'danger',
   COMPLETED: 'info',
 }
 
 const statusLabel: Record<string, string> = {
   CONFIRMED: 'Confirmado',
-  PENDING: 'Pendente',
+  PENDING:   'Pendente',
   CANCELLED: 'Cancelado',
-  NO_SHOW: 'Não compareceu',
+  NO_SHOW:   'Não compareceu',
   COMPLETED: 'Realizado',
 }
 
 const paymentLabel: Record<string, string> = {
-  PIX: 'Pix',
+  PIX:         'Pix',
   CREDIT_CARD: 'Cartão',
-  DEBIT_CARD: 'Débito',
+  DEBIT_CARD:  'Débito',
 }
 
-const paymentStatusLabel: Record<string, string> = {
-  APPROVED: 'Pago / Confirmado',
-  PENDING: 'Aguardando pagamento',
-  PROCESSING: 'Processando',
-  REJECTED: 'Recusado',
-  CANCELLED: 'Cancelado',
-  REFUNDED: 'Estornado',
-  PARTIAL_REFUND: 'Estorno parcial',
-  EXPIRED: 'Expirado',
+const paymentBadgeConfig: Record<string, { variant: any; label: string }> = {
+  APPROVED:      { variant: 'success',   label: 'Pago'         },
+  PENDING:       { variant: 'warning',   label: 'Pendente'     },
+  PROCESSING:    { variant: 'info',      label: 'Processando'  },
+  REJECTED:      { variant: 'danger',    label: 'Recusado'     },
+  CANCELLED:     { variant: 'danger',    label: 'Cancelado'    },
+  REFUNDED:      { variant: 'info',      label: 'Estornado'    },
+  PARTIAL_REFUND:{ variant: 'exclusive', label: 'Est. parcial' },
+  EXPIRED:       { variant: 'danger',    label: 'Expirado'     },
 }
 
 function fmtDate(d: BookingWithDetails['date']) {
   return format(new Date(String(d).slice(0, 10) + 'T12:00:00'), 'dd/MM/yy', { locale: ptBR })
 }
 
-// ─── Painel PIX para admin ───────────────────────────────────────────────────
+// ─── InfoCard ────────────────────────────────────────────────────────────────
+
+function InfoCard({
+  label, value, valueClass, icon,
+}: {
+  label: string
+  value: string
+  valueClass?: string
+  icon?: React.ReactNode
+}) {
+  return (
+    <div className="bg-surface-container rounded-xl px-3 py-2.5 flex flex-col gap-1 min-w-0">
+      <div className="flex items-center gap-1">
+        {icon && <span className="text-on-surface-variant flex-shrink-0">{icon}</span>}
+        <span className="font-headline text-[9px] uppercase tracking-widest text-on-surface-variant font-semibold leading-none truncate">
+          {label}
+        </span>
+      </div>
+      <p className={`font-headline text-xs font-bold leading-snug ${valueClass ?? 'text-on-surface'}`}>
+        {value}
+      </p>
+    </div>
+  )
+}
+
+// ─── Painel PIX ──────────────────────────────────────────────────────────────
+
 function PixPanel({
   pixQrCode, pixQrCodeBase64, expiresAt, waLink,
 }: {
@@ -74,7 +100,6 @@ function PixPanel({
 
   return (
     <div className="bg-green-50 border border-green-200 rounded-2xl overflow-hidden">
-      {/* Header compacto — uma linha */}
       <div className="bg-gradient-to-r from-green-600 to-emerald-500 px-3 py-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
           <QrCode className="w-3.5 h-3.5 text-white flex-shrink-0" />
@@ -86,7 +111,6 @@ function PixPanel({
       </div>
 
       <div className="p-3 space-y-2.5">
-        {/* QR Code */}
         {pixQrCodeBase64 && (
           <div className="flex justify-center">
             <div className="bg-white p-2 rounded-xl shadow border border-green-100">
@@ -100,7 +124,6 @@ function PixPanel({
           </div>
         )}
 
-        {/* Chave copia e cola */}
         <div className="bg-white border border-green-200 rounded-xl p-2.5">
           <p className="font-headline text-[9px] text-green-700 uppercase tracking-widest font-bold mb-1">
             PIX Copia e Cola
@@ -110,16 +133,20 @@ function PixPanel({
           </p>
         </div>
 
-        {/* Botões */}
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={copy}
             className={`flex items-center justify-center gap-1.5 py-2 rounded-xl font-headline text-[11px] font-bold transition-all ${
-              copied ? 'bg-green-600 text-white' : 'bg-white border border-green-300 text-green-700 hover:bg-green-50'
+              copied
+                ? 'bg-green-600 text-white'
+                : 'bg-white border border-green-300 text-green-700 hover:bg-green-50'
             }`}
           >
-            {copied ? <><Check className="w-3.5 h-3.5" /> Copiado!</> : <><Copy className="w-3.5 h-3.5" /> Copiar</>}
+            {copied
+              ? <><Check className="w-3.5 h-3.5" /> Copiado!</>
+              : <><Copy className="w-3.5 h-3.5" /> Copiar</>
+            }
           </button>
           <a
             href={waLink}
@@ -136,7 +163,7 @@ function PixPanel({
   )
 }
 
-// ─── Modal de detalhes do pedido ────────────────────────────────────────────
+// ─── Modal de detalhes do pedido ─────────────────────────────────────────────
 
 function OrderDetailModal({
   order,
@@ -157,24 +184,29 @@ function OrderDetailModal({
   const [cancellingOrder, setCancellingOrder] = useState(false)
   const [confirmCancelAll, setConfirmCancelAll] = useState(false)
 
-  const paid = order.paymentStatus === 'APPROVED'
-  const hasPartialRefund = order.paymentStatus === 'PARTIAL_REFUND'
-  const refundedAmount = order.refundedAmount ?? 0
-  const hasActiveBookings = order.bookings.some((b) => ['CONFIRMED', 'PENDING'].includes(b.status))
-  const isPending = order.paymentStatus !== 'APPROVED' && hasActiveBookings
+  const paid             = order.paymentStatus === 'APPROVED'
+  const refundedAmount   = order.refundedAmount ?? 0
+  const hasActiveBookings = order.bookings.some(b => ['CONFIRMED', 'PENDING'].includes(b.status))
+  const isPending        = order.paymentStatus !== 'APPROVED' && hasActiveBookings
 
-  // Pix pendente — dados computados uma única vez
-  const isPixPending = order.paymentMethod === 'PIX' && order.paymentStatus === 'PENDING'
-  const pixBooking = order.bookings.find(b => (b as any).payment?.pixQrCode)
-  const pixQrCode = (pixBooking as any)?.payment?.pixQrCode as string | null
-  const pixQrCodeBase64 = (pixBooking as any)?.payment?.pixQrCodeBase64 as string | null
-  const pixExpiration = (pixBooking as any)?.payment?.pixExpiration as string | null
-  const expiresAt = pixExpiration
+  const pBadge = order.paymentStatus
+    ? (paymentBadgeConfig[order.paymentStatus] ?? { variant: 'default' as any, label: order.paymentStatus })
+    : null
+
+  // Pix pendente
+  const isPixPending    = order.paymentMethod === 'PIX' && order.paymentStatus === 'PENDING'
+  const pixBooking      = order.bookings.find(b => (b as any).payment?.pixQrCode)
+  const pixQrCode       = (pixBooking as any)?.payment?.pixQrCode       as string | null
+  const pixQrCodeBase64 = (pixBooking as any)?.payment?.pixQrCodeBase64  as string | null
+  const pixExpiration   = (pixBooking as any)?.payment?.pixExpiration    as string | null
+  const expiresAt       = pixExpiration
     ? format(new Date(pixExpiration), "dd/MM 'às' HH:mm", { locale: ptBR })
     : '30 min'
-  const activeBookings = order.bookings.filter(b => b.status !== 'CANCELLED')
-  const slotLines = activeBookings.map(b => `• ${b.court.name} — ${fmtDate(b.date)} às ${b.startTime}`).join('\n')
-  const pixTotal = formatCurrency(order.activeValue ?? order.totalValue)
+  const activeBookings  = order.bookings.filter(b => b.status !== 'CANCELLED')
+  const pixTotal        = formatCurrency(order.activeValue ?? order.totalValue)
+  const slotLines       = activeBookings
+    .map(b => `• ${b.court.name} — ${fmtDate(b.date)} às ${b.startTime}`)
+    .join('\n')
   const waMsg = encodeURIComponent(
     `Olá ${order.user.name.split(' ')[0]}! 🏖️\n\n` +
     `Segue o código PIX para confirmar sua reserva na *Arena Beach Serra*:\n\n` +
@@ -184,8 +216,8 @@ function OrderDetailModal({
     `*Válido até:* ${expiresAt}\n\n` +
     `Após o pagamento, sua reserva é confirmada automaticamente. ✅`
   )
-  const phone = (order.user.phone ?? '').replace(/\D/g, '')
-  const waLink = phone ? `https://wa.me/55${phone}?text=${waMsg}` : `https://wa.me/?text=${waMsg}`
+  const phone       = (order.user.phone ?? '').replace(/\D/g, '')
+  const waLink      = phone ? `https://wa.me/55${phone}?text=${waMsg}` : `https://wa.me/?text=${waMsg}`
   const showPixPanel = isPixPending && !!pixQrCode
 
   const handleConfirm = async () => {
@@ -200,157 +232,53 @@ function OrderDetailModal({
     try { await onCancelOrder(order) } finally { setCancellingOrder(false) }
   }
 
-  // Bloco de resumo reutilizado nas duas variantes de layout
-  const summaryGrid = (
-    <div className="grid grid-cols-2 gap-3">
-      <div className="bg-surface-container rounded-xl px-3 py-2.5">
-        <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold flex items-center gap-1">
-          <Hash className="w-3 h-3" /> Nº do Pedido
-        </p>
-        <p className="font-headline text-sm text-on-surface font-bold mt-0.5">{order.accessCode}</p>
-      </div>
-      <div className="bg-surface-container rounded-xl px-3 py-2.5">
-        <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold flex items-center gap-1">
-          <CreditCard className="w-3 h-3" /> Pagamento
-        </p>
-        <p className="font-headline text-sm text-on-surface font-bold mt-0.5">
-          {order.paymentMethod ? paymentLabel[order.paymentMethod] : '—'}
-        </p>
-      </div>
-      <div className={`rounded-xl px-3 py-2.5 ${hasPartialRefund ? 'bg-amber-50 border border-amber-200' : 'bg-surface-container'}`}>
-        <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold flex items-center gap-1">
-          {paid ? <CheckCircle2 className="w-3 h-3 text-green-600" /> : hasPartialRefund ? <CheckCircle2 className="w-3 h-3 text-amber-600" /> : <Clock className="w-3 h-3 text-amber-600" />}
-          Status
-        </p>
-        <p className={`font-headline text-sm font-bold mt-0.5 ${paid ? 'text-green-700' : hasPartialRefund ? 'text-amber-700' : 'text-amber-700'}`}>
-          {order.paymentStatus ? (paymentStatusLabel[order.paymentStatus] ?? order.paymentStatus) : '—'}
-        </p>
-      </div>
-      <div className="bg-surface-container rounded-xl px-3 py-2.5">
-        <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">
-          {refundedAmount > 0 ? 'Valor Ativo' : 'Total'}
-        </p>
-        <p className="font-headline text-sm text-primary font-bold mt-0.5">
-          {formatCurrency(order.activeValue ?? order.totalValue)}
-        </p>
-      </div>
-    </div>
-  )
-
-  const refundRow = refundedAmount > 0 && (
-    <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between">
-      <div>
-        <p className="font-headline text-[10px] uppercase tracking-widest text-amber-700 font-bold">Valor Original</p>
-        <p className="font-headline text-sm text-on-surface-variant line-through">{formatCurrency(order.totalValue)}</p>
-      </div>
-      <div className="text-right">
-        <p className="font-headline text-[10px] uppercase tracking-widest text-amber-700 font-bold">Estornado</p>
-        <p className="font-headline text-sm text-amber-700 font-bold">− {formatCurrency(refundedAmount)}</p>
-      </div>
-    </div>
-  )
-
-  const gatewayRow = order.gatewayId && (
-    <p className="font-headline text-[10px] text-on-surface-variant">
-      ID transação MP: <span className="font-bold">{order.gatewayId}</span>
-    </p>
-  )
-
-  const slotsList = (
+  // Lista de horários (compartilhada entre layouts)
+  const slotRows = (
     <div className="space-y-2">
-      <p className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">
+      <p className="font-headline text-[9px] uppercase tracking-widest text-on-surface-variant font-semibold">
         {order.bookings.length} {order.bookings.length === 1 ? 'horário' : 'horários'}
       </p>
-      {order.bookings.map((b) => (
-        <div key={b.id} className="flex items-center justify-between gap-3 bg-surface-container-lowest border border-outline-variant/20 rounded-xl px-3 py-2.5">
-          <div className="min-w-0">
-            <p className="font-headline text-sm font-bold text-on-surface truncate">{b.court.name}</p>
-            <p className="font-headline text-xs text-on-surface-variant">
+      {order.bookings.map(b => (
+        <div
+          key={b.id}
+          className="bg-surface-container-lowest border border-outline-variant/20 rounded-xl px-3 py-2.5 flex items-center gap-2"
+        >
+          <div className="flex-1 min-w-0">
+            <p className="font-headline text-xs font-bold text-on-surface truncate">{b.court.name}</p>
+            <p className="font-headline text-[11px] text-on-surface-variant leading-tight">
               {fmtDate(b.date)} · {b.startTime}–{b.endTime} · {formatCurrency(Number(b.payment?.amount ?? b.totalValue))}
             </p>
           </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="flex items-center gap-1 flex-shrink-0">
             <Badge variant={statusVariant[b.status]}>{statusLabel[b.status]}</Badge>
             <Link
               href={`/admin/bookings/${b.id}`}
-              className="p-1.5 hover:bg-surface-container rounded-lg transition-colors text-on-surface-variant hover:text-primary"
+              className="p-1.5 rounded-lg hover:bg-surface-container transition-colors text-on-surface-variant hover:text-primary"
               title="Abrir reserva"
             >
-              <Eye className="w-4 h-4" />
+              <Eye className="w-3.5 h-3.5" />
             </Link>
             {['CONFIRMED', 'PENDING'].includes(b.status) && (
               <button
                 onClick={() => onCancel(b)}
-                className="p-1.5 hover:bg-red-50 rounded-lg transition-colors text-on-surface-variant hover:text-red-600"
+                className="p-1.5 rounded-lg hover:bg-red-50 transition-colors text-on-surface-variant hover:text-red-500"
                 title="Cancelar horário"
               >
-                <XCircle className="w-4 h-4" />
+                <XCircle className="w-3.5 h-3.5" />
               </button>
             )}
             {b.status === 'CANCELLED' && b.payment?.status === 'APPROVED' && (
               <button
                 onClick={() => onRefund(b)}
-                className="p-1.5 hover:bg-amber-50 rounded-lg transition-colors text-on-surface-variant hover:text-amber-600"
+                className="p-1.5 rounded-lg hover:bg-amber-50 transition-colors text-on-surface-variant hover:text-amber-500"
                 title="Estornar"
               >
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
         </div>
       ))}
-    </div>
-  )
-
-  const footer = (isPending || hasActiveBookings) && (
-    <div className="border-t border-outline-variant/20 px-6 py-4 space-y-2">
-      {isPending && (
-        <button
-          onClick={handleConfirm}
-          disabled={confirmingOrder || cancellingOrder}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-green-600 text-white font-headline text-sm font-bold hover:bg-green-700 active:scale-[0.98] transition-all disabled:opacity-50"
-        >
-          {confirmingOrder
-            ? <><Loader2 className="w-4 h-4 animate-spin" /> Confirmando...</>
-            : <><BadgeCheck className="w-4 h-4" /> Confirmar Pagamento Manualmente</>
-          }
-        </button>
-      )}
-      {hasActiveBookings && (
-        confirmCancelAll ? (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-3 space-y-2">
-            <p className="font-headline text-xs text-red-700 font-bold text-center">
-              Cancelar todos os horários{paid ? ' e estornar todos os valores' : ''}?
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setConfirmCancelAll(false)}
-                className="flex-1 py-2 rounded-lg border border-outline-variant/40 font-headline text-xs font-bold text-on-surface-variant hover:bg-surface-container transition-all"
-              >
-                Não
-              </button>
-              <button
-                onClick={handleCancelAll}
-                disabled={cancellingOrder}
-                className="flex-1 py-2 rounded-lg bg-red-600 text-white font-headline text-xs font-bold hover:bg-red-700 transition-all disabled:opacity-50"
-              >
-                {cancellingOrder ? 'Cancelando...' : 'Sim, cancelar tudo'}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={handleCancelAll}
-            disabled={confirmingOrder || cancellingOrder}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 font-headline text-sm font-bold hover:bg-red-100 active:scale-[0.98] transition-all disabled:opacity-50"
-          >
-            {cancellingOrder
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Cancelando...</>
-              : <><Trash2 className="w-4 h-4" /> Cancelar Pedido{paid ? ' + Estornar Tudo' : ''}</>
-            }
-          </button>
-        )
-      )}
     </div>
   )
 
@@ -368,91 +296,148 @@ function OrderDetailModal({
         exit={{ y: 40, opacity: 0 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
         className={`bg-surface w-full ${showPixPanel ? 'max-w-2xl' : 'max-w-lg'} rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col`}
-        onClick={(e) => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant/20 flex-shrink-0">
-          <div>
-            <h2 className="font-headline text-base font-bold text-on-surface">Pedido</h2>
-            <p className="font-headline text-xs text-on-surface-variant">{order.user.name} · {order.user.email}</p>
+        {/* ── HEADER ──────────────────────────────────────────────────────────── */}
+        <div className="flex items-start justify-between px-6 pt-5 pb-4 border-b border-outline-variant/20 flex-shrink-0">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+              <h2 className="font-headline text-base font-bold text-on-surface">Pedido</h2>
+              <span className="font-headline text-[10px] font-bold text-on-surface-variant bg-surface-container px-2 py-0.5 rounded-full">
+                #{order.accessCode}
+              </span>
+              {pBadge && <Badge variant={pBadge.variant}>{pBadge.label}</Badge>}
+            </div>
+            <p className="font-headline text-xs text-on-surface-variant truncate">
+              {order.user.name} · {order.user.email}
+            </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-surface-container rounded-full transition-all">
-            <X className="w-5 h-5 text-on-surface-variant" />
+          <button
+            onClick={onClose}
+            className="ml-3 mt-0.5 p-1.5 hover:bg-surface-container rounded-full transition-all flex-shrink-0"
+          >
+            <X className="w-4 h-4 text-on-surface-variant" />
           </button>
         </div>
 
-        {showPixPanel ? (
-          /* ── Layout Pix: 4 cards em linha + 2 colunas abaixo ── */
-          <div
-            className="overflow-y-auto flex-1 px-6 py-4 space-y-4"
-            onClick={(e) => { if (confirmCancelAll) { setConfirmCancelAll(false); e.stopPropagation() } }}
-          >
-            {/* Linha 1: 4 cards compactos lado a lado */}
-            <div className="grid grid-cols-4 gap-2">
-              <div className="bg-surface-container rounded-xl px-3 py-2">
-                <p className="font-headline text-[9px] uppercase tracking-widest text-on-surface-variant font-bold flex items-center gap-1 mb-0.5">
-                  <Hash className="w-2.5 h-2.5" /> Nº Pedido
-                </p>
-                <p className="font-headline text-[11px] text-on-surface font-bold leading-tight">{order.accessCode}</p>
-              </div>
-              <div className="bg-surface-container rounded-xl px-3 py-2">
-                <p className="font-headline text-[9px] uppercase tracking-widest text-on-surface-variant font-bold flex items-center gap-1 mb-0.5">
-                  <CreditCard className="w-2.5 h-2.5" /> Pagamento
-                </p>
-                <p className="font-headline text-[11px] text-on-surface font-bold leading-tight">
-                  {order.paymentMethod ? paymentLabel[order.paymentMethod] : '—'}
-                </p>
-              </div>
-              <div className={`rounded-xl px-3 py-2 ${hasPartialRefund ? 'bg-amber-50 border border-amber-200' : 'bg-surface-container'}`}>
-                <p className="font-headline text-[9px] uppercase tracking-widest text-on-surface-variant font-bold flex items-center gap-1 mb-0.5">
-                  {paid ? <CheckCircle2 className="w-2.5 h-2.5 text-green-600" /> : hasPartialRefund ? <CheckCircle2 className="w-2.5 h-2.5 text-amber-600" /> : <Clock className="w-2.5 h-2.5 text-amber-600" />}
-                  Status
-                </p>
-                <p className={`font-headline text-[11px] font-bold leading-tight ${paid ? 'text-green-700' : hasPartialRefund ? 'text-amber-700' : 'text-amber-700'}`}>
-                  {order.paymentStatus ? (paymentStatusLabel[order.paymentStatus] ?? order.paymentStatus) : '—'}
-                </p>
-              </div>
-              <div className="bg-surface-container rounded-xl px-3 py-2">
-                <p className="font-headline text-[9px] uppercase tracking-widest text-on-surface-variant font-bold mb-0.5">
-                  {refundedAmount > 0 ? 'Valor Ativo' : 'Total'}
-                </p>
-                <p className="font-headline text-[11px] text-primary font-bold leading-tight">
-                  {formatCurrency(order.activeValue ?? order.totalValue)}
-                </p>
-              </div>
-            </div>
-
-            {/* Linha 2: horários | QR Code Pix */}
-            <div className="grid grid-cols-2 gap-4 items-start">
-              <div className="space-y-3">
-                {refundRow}
-                {gatewayRow}
-                {slotsList}
-              </div>
-              <div>
-                <PixPanel
-                  pixQrCode={pixQrCode!}
-                  pixQrCodeBase64={pixQrCodeBase64}
-                  expiresAt={expiresAt}
-                  waLink={waLink}
-                />
-              </div>
-            </div>
+        {/* ── CONTENT ─────────────────────────────────────────────────────────── */}
+        <div
+          className="overflow-y-auto flex-1 px-6 py-4 space-y-4"
+          onClick={e => { if (confirmCancelAll) { setConfirmCancelAll(false); e.stopPropagation() } }}
+        >
+          {/* 4 cards informativos — 4 colunas no layout Pix, 2×2 nos demais */}
+          <div className={`grid gap-2 ${showPixPanel ? 'grid-cols-4' : 'grid-cols-2'}`}>
+            <InfoCard
+              label="Nº Pedido"
+              value={order.accessCode}
+              icon={<Hash className="w-3 h-3" />}
+            />
+            <InfoCard
+              label="Pagamento"
+              value={order.paymentMethod ? paymentLabel[order.paymentMethod] : '—'}
+              icon={<CreditCard className="w-3 h-3" />}
+            />
+            <InfoCard
+              label="Criado em"
+              value={format(new Date(order.createdAt), "dd/MM/yy 'às' HH:mm", { locale: ptBR })}
+              icon={<Clock className="w-3 h-3" />}
+            />
+            <InfoCard
+              label={refundedAmount > 0 ? 'Valor Ativo' : 'Total'}
+              value={formatCurrency(order.activeValue ?? order.totalValue)}
+              valueClass="text-primary"
+            />
           </div>
-        ) : (
-          /* ── Layout coluna única: demais métodos ── */
-          <div
-            className="overflow-y-auto flex-1 px-6 py-5 space-y-5"
-            onClick={(e) => { if (confirmCancelAll) { setConfirmCancelAll(false); e.stopPropagation() } }}
-          >
-            {summaryGrid}
-            {refundRow}
-            {gatewayRow}
-            {slotsList}
+
+          {/* Faixa de estorno parcial */}
+          {refundedAmount > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between">
+              <div>
+                <p className="font-headline text-[9px] uppercase tracking-widest text-amber-700 font-semibold mb-0.5">Original</p>
+                <p className="font-headline text-sm text-on-surface-variant line-through font-bold">{formatCurrency(order.totalValue)}</p>
+              </div>
+              <div className="text-right">
+                <p className="font-headline text-[9px] uppercase tracking-widest text-amber-700 font-semibold mb-0.5">Estornado</p>
+                <p className="font-headline text-sm text-amber-700 font-bold">− {formatCurrency(refundedAmount)}</p>
+              </div>
+            </div>
+          )}
+
+          {/* ID da transação MP */}
+          {order.gatewayId && (
+            <p className="font-headline text-[10px] text-on-surface-variant">
+              ID MP: <span className="font-bold">{order.gatewayId}</span>
+            </p>
+          )}
+
+          {/* Corpo: 2 colunas (Pix) ou coluna única */}
+          {showPixPanel ? (
+            <div className="grid grid-cols-2 gap-4 items-start">
+              <div className="space-y-3">{slotRows}</div>
+              <PixPanel
+                pixQrCode={pixQrCode!}
+                pixQrCodeBase64={pixQrCodeBase64}
+                expiresAt={expiresAt}
+                waLink={waLink}
+              />
+            </div>
+          ) : (
+            slotRows
+          )}
+        </div>
+
+        {/* ── FOOTER ──────────────────────────────────────────────────────────── */}
+        {(isPending || hasActiveBookings) && (
+          <div className="border-t border-outline-variant/20 px-6 py-4 space-y-2 flex-shrink-0">
+            {isPending && (
+              <button
+                onClick={handleConfirm}
+                disabled={confirmingOrder || cancellingOrder}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-green-600 text-white font-headline text-sm font-bold hover:bg-green-700 active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                {confirmingOrder
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Confirmando...</>
+                  : <><BadgeCheck className="w-4 h-4" /> Confirmar Pagamento Manualmente</>
+                }
+              </button>
+            )}
+            {hasActiveBookings && (
+              confirmCancelAll ? (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 space-y-2">
+                  <p className="font-headline text-xs text-red-700 font-bold text-center">
+                    Cancelar todos os horários{paid ? ' e estornar os valores' : ''}?
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setConfirmCancelAll(false)}
+                      className="flex-1 py-2 rounded-lg border border-outline-variant/40 font-headline text-xs font-bold text-on-surface-variant hover:bg-surface-container transition-all"
+                    >
+                      Não
+                    </button>
+                    <button
+                      onClick={handleCancelAll}
+                      disabled={cancellingOrder}
+                      className="flex-1 py-2 rounded-lg bg-red-600 text-white font-headline text-xs font-bold hover:bg-red-700 transition-all disabled:opacity-50"
+                    >
+                      {cancellingOrder ? 'Cancelando...' : 'Sim, cancelar tudo'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={handleCancelAll}
+                  disabled={confirmingOrder || cancellingOrder}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-50 border border-red-200 text-red-600 font-headline text-sm font-bold hover:bg-red-100 active:scale-[0.98] transition-all disabled:opacity-50"
+                >
+                  {cancellingOrder
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Cancelando...</>
+                    : <><Trash2 className="w-4 h-4" /> Cancelar Pedido{paid ? ' + Estornar Tudo' : ''}</>
+                  }
+                </button>
+              )
+            )}
           </div>
         )}
-
-        {footer}
       </motion.div>
     </motion.div>
   )
@@ -536,7 +521,7 @@ export function BookingTable({ orders, isLoading, onRefresh }: BookingTableProps
               </tr>
             ) : (
               orders.map((order) => {
-                const multi = order.bookings.length > 1
+                const multi  = order.bookings.length > 1
                 const single = order.bookings[0]
                 return (
                   <tr key={order.orderId} className="hover:bg-surface-container/50 transition-colors">
