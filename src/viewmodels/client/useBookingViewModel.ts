@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { addDays, format } from 'date-fns'
@@ -54,7 +54,12 @@ export function useBookingViewModel(courtId: string) {
   const [slotError, setSlotError] = useState('')
   const [addedFeedback, setAddedFeedback] = useState(false)
 
-  const days = Array.from({ length: 30 }, (_, i) => addDays(new Date(), i))
+  const [daysCount, setDaysCount] = useState(60)
+  const days = useMemo(
+    () => Array.from({ length: daysCount }, (_, i) => addDays(new Date(), i)),
+    [daysCount]
+  )
+  const loadMoreDays = useCallback(() => setDaysCount(n => n + 30), [])
 
   const { data: court, isLoading: loadingCourt } = useQuery<Court>({
     queryKey: ['court', courtId],
@@ -180,6 +185,7 @@ export function useBookingViewModel(courtId: string) {
     addToCart,
     goToCart,
     addedFeedback,
+    loadMoreDays,
     cartCount: cart.totalCount,
     cartTotal: cart.totalAmount,
     goBack: () => router.back(),

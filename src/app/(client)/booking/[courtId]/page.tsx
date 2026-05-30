@@ -1,6 +1,6 @@
 'use client'
 
-import { use, useRef, useEffect } from 'react'
+import { use, useRef, useEffect, useCallback } from 'react'
 import { ArrowLeft, Users, ShoppingCart, Clock, AlertCircle, Check, ChevronLeft, ChevronRight, Ban } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -20,8 +20,12 @@ export default function BookingPage({ params }: BookingPageProps) {
   const { courtId } = use(params)
   const vm = useBookingViewModel(courtId)
   const dateScrollRef = useRef<HTMLDivElement>(null)
+  const isDragging = useRef(false)
+  const hasDragged = useRef(false)
+  const dragStartX = useRef(0)
+  const scrollStart = useRef(0)
 
-  // Converte scroll vertical do mouse em scroll horizontal no carrossel de datas
+  // Scroll com roda do mouse (vertical → horizontal)
   useEffect(() => {
     const el = dateScrollRef.current
     if (!el) return
@@ -33,6 +37,37 @@ export default function BookingPage({ params }: BookingPageProps) {
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
   }, [])
+
+  // Drag-to-scroll com mouse (mousemove/mouseup no document para não perder o gesto)
+  const onMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging.current || !dateScrollRef.current) return
+    const delta = e.clientX - dragStartX.current
+    if (Math.abs(delta) > 4) hasDragged.current = true
+    dateScrollRef.current.scrollLeft = scrollStart.current - delta
+  }, [])
+
+  const onMouseUp = useCallback(() => {
+    isDragging.current = false
+    if (dateScrollRef.current) dateScrollRef.current.style.cursor = ''
+  }, [])
+
+  useEffect(() => {
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [onMouseMove, onMouseUp])
+
+  // Carrega mais datas ao chegar perto do fim do carrossel
+  const onScrollLoadMore = useCallback(() => {
+    const el = dateScrollRef.current
+    if (!el) return
+    if (el.scrollWidth - el.scrollLeft - el.clientWidth < 400) {
+      vm.loadMoreDays()
+    }
+  }, [vm])
 
   if (vm.loadingCourt) return <Loader />
   if (!vm.court) return <div className="p-8 text-center font-headline">Quadra não encontrada.</div>
@@ -95,16 +130,24 @@ export default function BookingPage({ params }: BookingPageProps) {
 
             <div
               ref={dateScrollRef}
-              className="flex gap-3 md:gap-4 overflow-x-auto pb-4 court-scrollbar snap-x px-4 md:px-10"
+              onMouseDown={(e) => {
+                isDragging.current = true
+                hasDragged.current = false
+                dragStartX.current = e.clientX
+                scrollStart.current = dateScrollRef.current?.scrollLeft ?? 0
+                if (dateScrollRef.current) dateScrollRef.current.style.cursor = 'grabbing'
+              }}
+              onScroll={onScrollLoadMore}
+              className="flex gap-3 md:gap-4 overflow-x-auto pb-4 court-scrollbar snap-x px-4 md:px-10 md:cursor-grab"
             >
               {vm.days.map((day) => {
                 const isActive = format(day, 'yyyy-MM-dd') === format(vm.selectedDate, 'yyyy-MM-dd')
                 return (
                   <button
                     key={day.toISOString()}
-                    onClick={() => vm.handleDateChange(day)}
+                    onClick={() => { if (!hasDragged.current) vm.handleDateChange(day) }}
                     className={cn(
-                      'flex-shrink-0 w-16 h-20 md:w-20 md:h-24 rounded-2xl flex flex-col items-center justify-center transition-all snap-center',
+                      'flex-shrink-0 w-16 h-20 md:w-20 md:h-24 rounded-2xl flex flex-col items-center justify-center transition-all snap-center select-none',
                       isActive
                         ? 'bg-primary text-white shadow-lg scale-105'
                         : 'bg-surface-container border border-outline-variant/30 text-on-surface hover:border-primary/50'
