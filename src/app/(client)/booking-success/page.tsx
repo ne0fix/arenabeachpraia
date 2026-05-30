@@ -99,6 +99,36 @@ function SuccessContent() {
     )
   }
 
+  // ── Cartão recusado / falha no pagamento ─────────────────────────────────
+  if (
+    booking.status === 'CANCELLED' && booking.cancelReason === 'PAYMENT_FAILED' ||
+    (booking as any).payment?.status === 'REJECTED'
+  ) {
+    return (
+      <main className="flex-1 w-full max-w-md mx-auto px-6 flex flex-col items-center justify-center pt-12 pb-24 md:py-12">
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="relative mb-8">
+          <div className="relative bg-surface-container-lowest sun-shadow w-24 h-24 rounded-full flex items-center justify-center border-4 border-surface-container">
+            <XCircle className="w-12 h-12 text-red-500" fill="currentColor" />
+          </div>
+        </motion.div>
+        <div className="text-center mb-8">
+          <h1 className="font-headline text-2xl text-red-600 font-bold mb-3">Pagamento Recusado</h1>
+          <p className="text-on-surface-variant text-sm leading-relaxed max-w-[280px] mx-auto">
+            Seu cartão foi recusado. Nenhum valor foi cobrado. Tente novamente com outro cartão ou escolha pagar via Pix.
+          </p>
+        </div>
+        <div className="w-full space-y-3">
+          <Button className="w-full h-12" onClick={() => router.back()}>
+            Tentar Novamente com Cartão
+          </Button>
+          <Button variant="outline" className="w-full h-12" onClick={() => router.push('/')}>
+            <Home className="w-5 h-5 mr-2" /> Voltar ao Início
+          </Button>
+        </div>
+      </main>
+    )
+  }
+
   // ── Cancelado por conflito de horário ─────────────────────────────────────
   if (booking.status === 'CANCELLED' && (booking.cancelReason === 'SLOT_CONFLICT' || booking.cancelReason === 'SLOT_TAKEN_BY_OTHER')) {
     const isManualRefund = booking.cancelReason === 'SLOT_TAKEN_BY_OTHER'
@@ -155,6 +185,33 @@ function SuccessContent() {
   }
 
   // ── Aguardando confirmação do pagamento (PIX) ─────────────────────────────
+  // Guarda de segurança: PENDING com pagamento rejeitado não deve ficar em polling
+  if (booking.status === 'PENDING' && (booking as any).payment?.status === 'REJECTED') {
+    return (
+      <main className="flex-1 w-full max-w-md mx-auto px-6 flex flex-col items-center justify-center pt-12 pb-24 md:py-12">
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="relative mb-8">
+          <div className="relative bg-surface-container-lowest sun-shadow w-24 h-24 rounded-full flex items-center justify-center border-4 border-surface-container">
+            <XCircle className="w-12 h-12 text-red-500" fill="currentColor" />
+          </div>
+        </motion.div>
+        <div className="text-center mb-8">
+          <h1 className="font-headline text-2xl text-red-600 font-bold mb-3">Pagamento Recusado</h1>
+          <p className="text-on-surface-variant text-sm leading-relaxed max-w-[280px] mx-auto">
+            Seu cartão foi recusado. Nenhum valor foi cobrado. Tente novamente com outro cartão ou escolha pagar via Pix.
+          </p>
+        </div>
+        <div className="w-full space-y-3">
+          <Button className="w-full h-12" onClick={() => router.back()}>
+            Tentar Novamente com Cartão
+          </Button>
+          <Button variant="outline" className="w-full h-12" onClick={() => router.push('/')}>
+            <Home className="w-5 h-5 mr-2" /> Voltar ao Início
+          </Button>
+        </div>
+      </main>
+    )
+  }
+
   if (booking.status === 'PENDING') {
     const pixQrCode = (booking as any).payment?.pixQrCode
     const pixQrCodeBase64 = (booking as any).payment?.pixQrCodeBase64

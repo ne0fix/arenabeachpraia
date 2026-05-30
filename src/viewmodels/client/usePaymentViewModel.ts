@@ -106,6 +106,16 @@ export function usePaymentViewModel() {
       return res.json() as Promise<{ booking: { id: string }; pixQrCode?: string; pixQrCodeBase64?: string }>
     },
     onSuccess: (data) => {
+      // Cartão recusado: o servidor pode retornar 201 com booking PENDING e payment REJECTED
+      // Redireciona para erro em vez de mostrar "Aguardando PIX"
+      if (
+        data.payment?.status === 'REJECTED' ||
+        (data.booking?.status === 'CANCELLED' && (data.booking as any)?.cancelReason === 'PAYMENT_FAILED')
+      ) {
+        router.push('/booking-error?code=PAYMENT_FAILED&message=' + encodeURIComponent('Cartão recusado. Tente outro cartão ou pague via Pix.'))
+        return
+      }
+
       setBookingId(data.booking.id)
       setAllBookingIds([data.booking.id])
       const cartParam = cartItemId ? `&cartItemId=${cartItemId}` : ''

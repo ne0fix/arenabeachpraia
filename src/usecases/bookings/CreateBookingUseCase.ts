@@ -214,6 +214,11 @@ export class CreateBookingUseCase {
       }
     }
 
+    // Se cartão foi rejeitado e chegou até aqui (fallback), garante que o cliente veja o erro
+    if (input.paymentMethod !== 'PIX' && payment.status === 'REJECTED') {
+      throw new AppError('CARD_REJECTED', translateMpRejection(mpStatusDetail), 402)
+    }
+
     return {
       booking,
       payment,
