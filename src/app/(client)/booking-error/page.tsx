@@ -11,6 +11,7 @@ function ErrorContent() {
   const params = useSearchParams()
   const router = useRouter()
   const code = params.get('code') ?? 'UNKNOWN_ERROR'
+  const message = params.get('message')
   const { whatsappNumber, msgSupport } = useSiteSettings()
 
   return (
@@ -34,6 +35,9 @@ function ErrorContent() {
           Código do Erro
         </p>
         <p className="font-headline text-sm text-red-700 font-bold">{code}</p>
+        {message && (
+          <p className="font-headline text-xs text-red-600 mt-2 leading-relaxed break-words">{message}</p>
+        )}
       </div>
 
       <div className="w-full space-y-4">

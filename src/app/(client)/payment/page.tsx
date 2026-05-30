@@ -88,7 +88,7 @@ function PaymentContent() {
 
   return (
     <main className="px-4 pb-28 md:pb-12 max-w-lg mx-auto">
-      <Script src="https://sdk.mercadopago.com/js/v2" strategy="beforeInteractive" />
+      <Script src="https://sdk.mercadopago.com/js/v2" strategy="afterInteractive" />
 
       {/* Cabeçalho */}
       <section className="mb-4">
@@ -306,6 +306,7 @@ function PaymentContent() {
                     cardHolder: fd.get('cardHolder') as string,
                     expiry: fd.get('expiry') as string,
                     cvv: fd.get('cvv') as string,
+                    cpf: fd.get('cpf') as string,
                   })
                 }}
               >
@@ -329,6 +330,19 @@ function PaymentContent() {
                     name="cardHolder"
                     required
                     placeholder="NOME COMO ESTÁ NO CARTÃO"
+                    className="w-full bg-surface-container border border-outline-variant/40 rounded-xl px-4 py-3.5 font-headline text-sm text-on-surface focus:outline-none focus:border-primary transition-all placeholder:text-outline/50"
+                  />
+                </div>
+                <div>
+                  <label className="block font-headline text-[10px] text-on-surface-variant mb-1.5 font-bold uppercase tracking-widest">
+                    CPF do Titular
+                  </label>
+                  <input
+                    name="cpf"
+                    required
+                    inputMode="numeric"
+                    placeholder="000.000.000-00"
+                    maxLength={14}
                     className="w-full bg-surface-container border border-outline-variant/40 rounded-xl px-4 py-3.5 font-headline text-sm text-on-surface focus:outline-none focus:border-primary transition-all placeholder:text-outline/50"
                   />
                 </div>

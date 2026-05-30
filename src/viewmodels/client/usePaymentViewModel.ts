@@ -14,6 +14,29 @@ declare global {
   }
 }
 
+// Aguarda o SDK do MercadoPago (carregado via <Script>) ficar disponível.
+async function waitForMercadoPago(timeoutMs = 5000): Promise<void> {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    if (typeof window !== 'undefined' && window.MercadoPago) return
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  throw new Error('SDK do MercadoPago não carregou. Recarregue a página e tente novamente.')
+}
+
+// Extrai uma mensagem legível dos diferentes formatos de erro do MP.
+function extractMpError(e: any): string {
+  if (!e) return ''
+  if (typeof e === 'string') return e
+  if (Array.isArray(e?.cause) && e.cause.length) {
+    return e.cause.map((c: any) => c?.description ?? c?.message ?? c?.code).filter(Boolean).join('; ')
+  }
+  if (Array.isArray(e?.error?.causes) && e.error.causes.length) {
+    return e.error.causes.map((c: any) => c?.description ?? c?.message).filter(Boolean).join('; ')
+  }
+  return e?.message ?? e?.error ?? ''
+}
+
 export function usePaymentViewModel() {
   const router = useRouter()
   const params = useSearchParams()
@@ -144,24 +167,40 @@ export function usePaymentViewModel() {
     cardHolder: string
     expiry: string
     cvv: string
+    cpf?: string
   }) => {
     if (cardData) {
       try {
         const publicKey = mpPublicKey || process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY
-        if (!publicKey) throw new Error('MercadoPago Public Key missing')
+        if (!publicKey) throw new Error('Chave pública do MercadoPago não configurada')
+
+        // Garante que o SDK (carregado via <Script>) já está disponível.
+        await waitForMercadoPago()
 
         const mp = new window.MercadoPago(publicKey)
-        const [month, year] = cardData.expiry.split('/')
+
+        // Aceita validade com ou sem barra: "MM/AA", "MMAA", "MM/AAAA".
+        const expDigits = cardData.expiry.replace(/\D/g, '')
+        const month = expDigits.slice(0, 2)
+        const yy = expDigits.slice(2)
+        const year = yy.length === 4 ? yy : '20' + yy.slice(0, 2)
+
+        // CPF do titular (somente dígitos). Sem um CPF válido o MP recusa o token.
+        const cpf = (cardData.cpf ?? '').replace(/\D/g, '')
 
         const tokenResult = await mp.createCardToken({
-          cardNumber: cardData.cardNumber.replace(/\s/g, ''),
+          cardNumber: cardData.cardNumber.replace(/\D/g, ''),
           cardholderName: cardData.cardHolder,
           cardExpirationMonth: month,
-          cardExpirationYear: '20' + year,
+          cardExpirationYear: year,
           securityCode: cardData.cvv,
           identificationType: 'CPF',
-          identificationNumber: '00000000000',
+          identificationNumber: cpf,
         })
+
+        if (!tokenResult?.id) {
+          throw new Error(extractMpError(tokenResult) || 'Não foi possível validar o cartão')
+        }
 
         const brand = tokenResult.card?.payment_method?.id ?? tokenResult.payment_method?.id ?? 'visa'
 
@@ -170,9 +209,10 @@ export function usePaymentViewModel() {
         } else {
           await createSingleBooking({ paymentToken: tokenResult.id, cardBrand: brand })
         }
-      } catch (e) {
+      } catch (e: any) {
         console.error('Card tokenization failed:', e)
-        router.push('/booking-error?code=TOKEN_FAILED')
+        const msg = extractMpError(e)
+        router.push(`/booking-error?code=TOKEN_FAILED${msg ? `&message=${encodeURIComponent(msg)}` : ''}`)
       }
     } else {
       if (isBatch) {
