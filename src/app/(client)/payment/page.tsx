@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'motion/react'
 import Image from 'next/image'
 import { Button } from '@/views/components/ui/Button'
 import { usePaymentViewModel } from '@/viewmodels/client/usePaymentViewModel'
+import { useSiteSettings } from '@/views/providers/SiteSettingsProvider'
 
 const PIX_STEPS = [
   { icon: Smartphone, label: 'Abra o app', desc: 'do seu banco' },
@@ -77,6 +78,7 @@ function CancelButton({
 
 function PaymentContent() {
   const vm = usePaymentViewModel()
+  const { pixEnabled, cardEnabled } = useSiteSettings()
   const isDev = process.env.NODE_ENV === 'development'
   const [confirmCancel, setConfirmCancel] = useState(false)
 
@@ -108,22 +110,46 @@ function PaymentContent() {
       </div>
 
       {/* Tabs de método */}
-      <div className="flex gap-2 mb-6 bg-surface-container rounded-2xl p-1.5 border border-outline-variant/20">
-        {(['PIX', 'CREDIT_CARD'] as const).map((m) => (
+      <div className="flex gap-2 mb-2 bg-surface-container rounded-2xl p-1.5 border border-outline-variant/20">
+        {([
+          { id: 'PIX',         label: 'Pix',    icon: QrCode,     enabled: pixEnabled },
+          { id: 'CREDIT_CARD', label: 'Cartão', icon: CreditCard, enabled: cardEnabled },
+        ] as const).map(({ id, label, icon: Icon, enabled }) => (
           <button
-            key={m}
-            onClick={() => vm.setMethod(m)}
+            key={id}
+            onClick={() => { if (enabled) vm.setMethod(id) }}
             className={`flex-1 py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all font-headline text-sm font-bold ${
-              vm.method === m
-                ? 'bg-primary text-white shadow-md'
-                : 'text-on-surface-variant hover:text-on-surface'
+              !enabled
+                ? 'text-on-surface-variant/40 cursor-default'
+                : vm.method === id
+                  ? 'bg-primary text-white shadow-md'
+                  : 'text-on-surface-variant hover:text-on-surface'
             }`}
           >
-            {m === 'PIX' ? <QrCode className="w-4 h-4" /> : <CreditCard className="w-4 h-4" />}
-            {m === 'PIX' ? 'Pix' : 'Cartão'}
+            <Icon className="w-4 h-4" />
+            {label}
+            {!enabled && <span className="text-[9px] font-bold uppercase tracking-wider opacity-70">Indisp.</span>}
           </button>
         ))}
       </div>
+
+      {/* Aviso de método desabilitado */}
+      {vm.method === 'PIX' && !pixEnabled && (
+        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+          <p className="font-headline text-xs text-amber-800 leading-relaxed">
+            O pagamento via <strong>Pix está temporariamente desabilitado</strong>. Por favor, utilize outro método ou entre em contato com o suporte.
+          </p>
+        </div>
+      )}
+      {vm.method === 'CREDIT_CARD' && !cardEnabled && (
+        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2">
+          <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+          <p className="font-headline text-xs text-amber-800 leading-relaxed">
+            O pagamento via <strong>Cartão de Crédito está temporariamente desabilitado</strong>. Por favor, utilize outro método ou entre em contato com o suporte.
+          </p>
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         {vm.method === 'PIX' ? (

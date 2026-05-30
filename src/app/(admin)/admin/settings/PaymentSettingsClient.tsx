@@ -1,16 +1,18 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { CreditCard, Key, Webhook, Eye, EyeOff, Save, Loader2, X, Copy, Check, ExternalLink } from 'lucide-react'
+import { CreditCard, Key, Webhook, Eye, EyeOff, Save, Loader2, X, Copy, Check, ExternalLink, QrCode, ToggleLeft, ToggleRight } from 'lucide-react'
 
 interface PaymentSettings {
   mpAccessToken: string
   mpPublicKey: string
   mpWebhookSecret: string
   mpNotificationUrl: string
+  pixEnabled: boolean
+  cardEnabled: boolean
 }
 
-const EMPTY: PaymentSettings = { mpAccessToken: '', mpPublicKey: '', mpWebhookSecret: '', mpNotificationUrl: '' }
+const EMPTY: PaymentSettings = { mpAccessToken: '', mpPublicKey: '', mpWebhookSecret: '', mpNotificationUrl: '', pixEnabled: true, cardEnabled: true }
 
 const inputCls =
   'w-full bg-surface-container border border-outline-variant/40 rounded-xl px-3 py-2.5 font-headline text-sm text-on-surface focus:outline-none focus:border-primary/50 transition-colors placeholder:text-on-surface-variant/40'
@@ -110,11 +112,13 @@ export function PaymentSettingsClient() {
       .then((r) => r.json())
       .then((data) => {
         const s = {
-        mpAccessToken:    data.mpAccessToken    ?? '',
-        mpPublicKey:      data.mpPublicKey      ?? '',
-        mpWebhookSecret:  data.mpWebhookSecret  ?? '',
-        mpNotificationUrl: data.mpNotificationUrl ?? '',
-      }
+          mpAccessToken:    data.mpAccessToken    ?? '',
+          mpPublicKey:      data.mpPublicKey      ?? '',
+          mpWebhookSecret:  data.mpWebhookSecret  ?? '',
+          mpNotificationUrl: data.mpNotificationUrl ?? '',
+          pixEnabled:       data.pixEnabled  ?? true,
+          cardEnabled:      data.cardEnabled ?? true,
+        }
         setDraft(s)
         setCommitted(s)
       })
@@ -153,8 +157,71 @@ export function PaymentSettingsClient() {
     )
   }
 
+  const toggle = (key: 'pixEnabled' | 'cardEnabled') =>
+    setDraft((d) => ({ ...d, [key]: !d[key] }))
+
   return (
     <div className="max-w-lg space-y-4">
+
+      {/* ── Métodos de Pagamento ── */}
+      <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 overflow-hidden sun-shadow">
+        <div className="flex items-center gap-2 px-5 py-4 border-b border-outline-variant/20">
+          <ToggleRight className="w-4 h-4 text-primary" />
+          <h3 className="font-headline text-sm text-on-surface font-bold">Métodos de Pagamento</h3>
+        </div>
+        <div className="p-5 space-y-3">
+          <p className="font-headline text-[11px] text-on-surface-variant leading-relaxed">
+            Desabilite um método para que os clientes não possam utilizá-lo no checkout.
+            Ao selecionar um método desabilitado, o cliente verá uma mensagem de aviso.
+          </p>
+
+          {/* PIX toggle */}
+          <button
+            type="button"
+            onClick={() => toggle('pixEnabled')}
+            className="w-full flex items-center justify-between gap-4 p-4 rounded-xl border border-outline-variant/30 hover:bg-surface-container transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${draft.pixEnabled ? 'bg-green-100' : 'bg-surface-container'}`}>
+                <QrCode className={`w-4 h-4 ${draft.pixEnabled ? 'text-green-700' : 'text-on-surface-variant'}`} />
+              </div>
+              <div className="text-left">
+                <p className="font-headline text-sm font-bold text-on-surface">Pix</p>
+                <p className="font-headline text-[10px] text-on-surface-variant">
+                  {draft.pixEnabled ? 'Habilitado — clientes podem pagar via Pix' : 'Desabilitado — Pix indisponível para clientes'}
+                </p>
+              </div>
+            </div>
+            {draft.pixEnabled
+              ? <ToggleRight className="w-7 h-7 text-green-600 flex-shrink-0" />
+              : <ToggleLeft  className="w-7 h-7 text-outline flex-shrink-0" />
+            }
+          </button>
+
+          {/* Cartão toggle */}
+          <button
+            type="button"
+            onClick={() => toggle('cardEnabled')}
+            className="w-full flex items-center justify-between gap-4 p-4 rounded-xl border border-outline-variant/30 hover:bg-surface-container transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${draft.cardEnabled ? 'bg-blue-100' : 'bg-surface-container'}`}>
+                <CreditCard className={`w-4 h-4 ${draft.cardEnabled ? 'text-blue-700' : 'text-on-surface-variant'}`} />
+              </div>
+              <div className="text-left">
+                <p className="font-headline text-sm font-bold text-on-surface">Cartão de Crédito</p>
+                <p className="font-headline text-[10px] text-on-surface-variant">
+                  {draft.cardEnabled ? 'Habilitado — clientes podem pagar via cartão' : 'Desabilitado — cartão indisponível para clientes'}
+                </p>
+              </div>
+            </div>
+            {draft.cardEnabled
+              ? <ToggleRight className="w-7 h-7 text-blue-600 flex-shrink-0" />
+              : <ToggleLeft  className="w-7 h-7 text-outline flex-shrink-0" />
+            }
+          </button>
+        </div>
+      </div>
 
       {/* Webhook URL */}
       <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 p-5 sun-shadow">

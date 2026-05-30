@@ -139,6 +139,8 @@ model SiteSettings {
   mpPublicKey      String   @default("")
   mpWebhookSecret  String   @default("")
   mpNotificationUrl String  @default("")
+  pixEnabled       Boolean  @default(true)
+  cardEnabled      Boolean  @default(true)
   updatedAt      DateTime @updatedAt
 
   @@map("site_settings")

@@ -8,6 +8,8 @@ export interface PublicSiteSettings {
   msgExclusive: string
   msgSupport: string
   mpPublicKey: string
+  pixEnabled: boolean
+  cardEnabled: boolean
 }
 
 const DEFAULTS: PublicSiteSettings = {
@@ -16,6 +18,8 @@ const DEFAULTS: PublicSiteSettings = {
   msgExclusive: 'Olá! Tenho interesse em agendar o espaço exclusivo "{nome}". Poderia me passar mais informações?',
   msgSupport:   'Olá! Preciso de suporte com meu agendamento.',
   mpPublicKey:  '',
+  pixEnabled:   true,
+  cardEnabled:  true,
 }
 
 const SiteSettingsContext = createContext<PublicSiteSettings>(DEFAULTS)

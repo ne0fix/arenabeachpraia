@@ -13,7 +13,9 @@ export async function GET() {
       msgExclusive:   data.msgExclusive,
       msgSupport:     data.msgSupport,
       mpPublicKey:    'mpPublicKey' in data ? (data as any).mpPublicKey : (process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY ?? ''),
+      pixEnabled:     'pixEnabled'  in data ? (data as any).pixEnabled  : true,
+      cardEnabled:    'cardEnabled' in data ? (data as any).cardEnabled : true,
     },
-    { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=30' } }
+    { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=10' } }
   )
 }

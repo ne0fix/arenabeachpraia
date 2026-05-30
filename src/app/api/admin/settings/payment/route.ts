@@ -15,6 +15,8 @@ export async function GET() {
     mpPublicKey:      s?.mpPublicKey      ?? '',
     mpWebhookSecret:  s?.mpWebhookSecret  ?? '',
     mpNotificationUrl: s?.mpNotificationUrl ?? '',
+    pixEnabled:       s?.pixEnabled       ?? true,
+    cardEnabled:      s?.cardEnabled      ?? true,
   })
 }
 
@@ -25,11 +27,13 @@ export async function PUT(request: Request) {
   }
 
   const body = await request.json()
-  const allowed = ['mpAccessToken', 'mpPublicKey', 'mpWebhookSecret', 'mpNotificationUrl']
-  const data: Record<string, string> = {}
-  for (const key of allowed) {
+  const allowedStrings = ['mpAccessToken', 'mpPublicKey', 'mpWebhookSecret', 'mpNotificationUrl']
+  const data: Record<string, string | boolean> = {}
+  for (const key of allowedStrings) {
     if (key in body && typeof body[key] === 'string') data[key] = body[key].trim()
   }
+  if ('pixEnabled'  in body && typeof body.pixEnabled  === 'boolean') data.pixEnabled  = body.pixEnabled
+  if ('cardEnabled' in body && typeof body.cardEnabled === 'boolean') data.cardEnabled = body.cardEnabled
 
   const settings = await prisma.siteSettings.upsert({
     where: { id: 'singleton' },
@@ -42,5 +46,7 @@ export async function PUT(request: Request) {
     mpPublicKey:      settings.mpPublicKey,
     mpWebhookSecret:  settings.mpWebhookSecret,
     mpNotificationUrl: settings.mpNotificationUrl,
+    pixEnabled:       settings.pixEnabled,
+    cardEnabled:      settings.cardEnabled,
   })
 }
