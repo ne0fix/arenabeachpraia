@@ -28,13 +28,24 @@ async function waitForMercadoPago(timeoutMs = 5000): Promise<void> {
 function extractMpError(e: any): string {
   if (!e) return ''
   if (typeof e === 'string') return e
+  // Formato mais comum: { cause: [{code, description}] }
   if (Array.isArray(e?.cause) && e.cause.length) {
     return e.cause.map((c: any) => c?.description ?? c?.message ?? c?.code).filter(Boolean).join('; ')
   }
+  // Formato alternativo: { error: { causes: [...] } }
   if (Array.isArray(e?.error?.causes) && e.error.causes.length) {
     return e.error.causes.map((c: any) => c?.description ?? c?.message).filter(Boolean).join('; ')
   }
-  return e?.message ?? e?.error ?? ''
+  // cause como objeto único (não array)
+  if (e?.cause && !Array.isArray(e.cause)) {
+    const c = e.cause
+    const desc = c?.description ?? c?.message ?? ''
+    if (desc) return desc
+  }
+  const msg = e?.message ?? e?.error ?? e?.msg ?? ''
+  if (msg) return String(msg)
+  // Fallback: serializa o objeto para debug
+  try { return JSON.stringify(e) } catch { return 'Erro desconhecido' }
 }
 
 export function usePaymentViewModel() {
@@ -177,7 +188,7 @@ export function usePaymentViewModel() {
         // Garante que o SDK (carregado via <Script>) já está disponível.
         await waitForMercadoPago()
 
-        const mp = new window.MercadoPago(publicKey)
+        const mp = new window.MercadoPago(publicKey, { locale: 'pt-BR' })
 
         // Aceita validade com ou sem barra: "MM/AA", "MMAA", "MM/AAAA".
         const expDigits = cardData.expiry.replace(/\D/g, '')
@@ -197,6 +208,8 @@ export function usePaymentViewModel() {
           identificationType: 'CPF',
           identificationNumber: cpf,
         })
+
+        console.log('[MP] createCardToken result:', JSON.stringify(tokenResult))
 
         if (!tokenResult?.id) {
           throw new Error(extractMpError(tokenResult) || 'Não foi possível validar o cartão')
