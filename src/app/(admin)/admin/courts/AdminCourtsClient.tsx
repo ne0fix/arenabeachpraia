@@ -151,29 +151,30 @@ export function AdminCourtsClient({ initialCourts }: { initialCourts: Court[] })
                   </div>
                 </div>
 
-                <div className="mt-auto grid grid-cols-2 gap-2">
+                <div className="mt-auto flex flex-col gap-2">
                   <button
                     type="button"
                     onClick={() => openModal(court, 'config')}
-                    className="bg-primary/10 text-primary hover:bg-primary/20 px-3 py-2.5 rounded-xl font-headline text-[10px] font-bold uppercase transition-all text-center"
+                    className="w-full flex items-center justify-center gap-2 bg-primary text-white hover:bg-primary/90 active:scale-[0.98] px-3 py-2.5 rounded-xl font-headline text-[11px] font-bold uppercase tracking-wider transition-all shadow-sm shadow-primary/20"
                   >
+                    <Clock className="w-3.5 h-3.5" />
                     Gerenciar Horários
                   </button>
                   <button
                     type="button"
                     onClick={() => openModal(court, 'bloqueio')}
-                    className="flex items-center justify-center gap-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 px-3 py-2.5 rounded-xl font-headline text-[10px] font-bold uppercase transition-all"
+                    className="w-full flex items-center justify-center gap-2 bg-surface-container border border-outline-variant/40 text-on-surface hover:bg-outline-variant/20 active:scale-[0.98] px-3 py-2.5 rounded-xl font-headline text-[11px] font-bold uppercase tracking-wider transition-all"
                   >
-                    <CalendarX className="w-3.5 h-3.5" />
+                    <CalendarX className="w-3.5 h-3.5 text-primary" />
                     Bloquear Data
                   </button>
                   <Link
                     href="/admin/settings"
-                    className="col-span-2 bg-surface-container text-on-surface-variant hover:bg-outline-variant/30 px-3 py-2 rounded-xl font-headline text-[10px] font-bold uppercase transition-all text-center"
+                    className="w-full text-center bg-surface-container/50 text-on-surface-variant hover:bg-outline-variant/20 px-3 py-2 rounded-xl font-headline text-[10px] font-bold uppercase transition-all"
                   >
                     Editar
                   </Link>
-                  <button className="bg-red-50 text-red-600 hover:bg-red-100 px-3 py-2 rounded-xl font-headline text-[10px] font-bold uppercase transition-all">
+                  <button className="w-full bg-red-50 text-red-600 hover:bg-red-100 px-3 py-2 rounded-xl font-headline text-[10px] font-bold uppercase transition-all">
                     Desativar
                   </button>
                 </div>
