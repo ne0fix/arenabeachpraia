@@ -8,6 +8,11 @@ export function getSocket(): Socket {
       path: '/api/socketio',
       transports: ['websocket', 'polling'],
       autoConnect: true,
+      // Limita tentativas para evitar spam no console quando o servidor
+      // não suporta WebSocket persistente (ex: Vercel serverless)
+      reconnectionAttempts: 3,
+      reconnectionDelay: 5000,
+      timeout: 8000,
     })
   }
   return socket
