@@ -76,7 +76,8 @@ export async function GET(req: Request) {
     prisma.court.findMany({ where: { isActive: true } }),
     prisma.booking.findMany({
       orderBy: { createdAt: 'desc' },
-      take: 10,
+      // Buffer maior: vários bookings podem pertencer ao mesmo pedido (orderId)
+      take: 60,
       include: {
         court: { select: { id: true, name: true } },
         user: { select: { name: true } },
@@ -84,6 +85,39 @@ export async function GET(req: Request) {
       },
     }),
   ])
+
+  // Agrupa os agendamentos recentes por pedido (orderId), como no menu Agendamentos.
+  const STATUS_PRIORITY = ['PENDING', 'CONFIRMED', 'COMPLETED', 'NO_SHOW', 'CANCELLED']
+  const recentGroups = new Map<string, typeof recentBookings>()
+  for (const b of recentBookings) {
+    const key = b.orderId ?? b.id
+    const arr = recentGroups.get(key)
+    if (arr) arr.push(b)
+    else recentGroups.set(key, [b])
+  }
+  const recentOrders = Array.from(recentGroups.entries())
+    .map(([orderId, items]) => {
+      const sorted = [...items].sort(
+        (a, b) => +new Date(a.date) - +new Date(b.date) || a.startTime.localeCompare(b.startTime)
+      )
+      const first = sorted[0]
+      const courtNames = Array.from(new Set(items.map((b) => b.court?.name).filter(Boolean)))
+      const createdAt = items.reduce((min, b) => (b.createdAt < min ? b.createdAt : min), items[0].createdAt)
+      const status = STATUS_PRIORITY.find((s) => items.some((b) => b.status === s)) ?? first.status
+      return {
+        id: orderId,
+        user: first.user,
+        court: first.court,
+        courtNames,
+        startTime: first.startTime,
+        count: items.length,
+        totalValue: items.reduce((s, b) => s + Number(b.payment?.amount ?? b.totalValue), 0),
+        status,
+        createdAt,
+      }
+    })
+    .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
+    .slice(0, 10)
 
   const totalBookings = bookings.length
   const confirmedBookings = bookings.filter((b) => b.status === 'CONFIRMED').length
@@ -163,6 +197,6 @@ export async function GET(req: Request) {
     bookingsByHour,
     bookingsByDay,
     bookingsByWeek: bookingsByDay,
-    recentBookings,
+    recentBookings: recentOrders,
   })
 }

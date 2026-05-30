@@ -170,7 +170,9 @@ export default function DashboardPage() {
                 <div className="flex-1">
                   <p className="font-headline text-sm text-on-surface font-bold">{b.user?.name}</p>
                   <p className="font-headline text-xs text-on-surface-variant">
-                    {b.court?.name} — {b.startTime}
+                    {b.courtNames?.length > 1 ? `${b.courtNames.length} quadras` : b.court?.name}
+                    {' — '}
+                    {b.count > 1 ? `${b.count} horários` : b.startTime}
                   </p>
                 </div>
                 <div className="text-right">
