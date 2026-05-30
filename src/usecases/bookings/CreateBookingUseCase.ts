@@ -3,7 +3,7 @@ import type { ICourtRepository } from '@/repositories/ICourtRepository'
 import type { IPaymentRepository } from '@/repositories/IPaymentRepository'
 import type { Booking } from '@/models/entities/Booking'
 import type { Payment, PaymentMethod } from '@/models/entities/Payment'
-import { BookingError } from '@/core/errors/AppError'
+import { AppError, BookingError } from '@/core/errors/AppError'
 import { generateAccessCode, calculateDuration, getEndTime } from '@/core/utils/helpers'
 import { MercadoPagoService } from '@/services/MercadoPagoService'
 import { randomUUID } from 'crypto'
@@ -82,6 +82,7 @@ export class CreateBookingUseCase {
 
     let gatewayId = null
     let gatewayStatus = 'PENDING'
+    let mpStatusDetail: string | null = null
     let pixQrCode = null
     let pixQrCodeBase64 = null
     let pixExpiration = null
@@ -120,6 +121,7 @@ export class CreateBookingUseCase {
         })
         gatewayId = mpPayment.id?.toString() ?? null
         gatewayStatus = mpPayment.status ?? 'PENDING'
+        mpStatusDetail = (mpPayment as any).status_detail ?? null
       }
     } catch (error) {
       console.error('Failed to create MercadoPago payment:', error)
@@ -127,7 +129,41 @@ export class CreateBookingUseCase {
     }
 
     const APPROVED_STATUSES = ['approved', 'processed', 'accredited']
+    const REJECTED_STATUSES = ['rejected', 'cancelled']
     const isApproved = APPROVED_STATUSES.includes(gatewayStatus)
+    const isRejected = REJECTED_STATUSES.includes(gatewayStatus)
+
+    // Cartão recusado: registra o pagamento como REJECTED, cancela o booking
+    // e lança erro para que a API retorne 400 e o cliente veja PAYMENT_FAILED.
+    if (isRejected) {
+      await this.paymentRepo.create({
+        bookingId: booking.id,
+        method: input.paymentMethod,
+        status: 'REJECTED',
+        amount: totalValue,
+        gatewayId: gatewayId?.toString() || null,
+        gatewayStatus,
+        pixQrCode: null,
+        pixQrCodeBase64: null,
+        pixExpiration: null,
+        cardLastFour: null,
+        cardBrand: input.cardBrand ?? null,
+        installments: 1,
+        paidAt: null,
+        refundedAt: null,
+        refundedBy: null,
+        refundAmount: null,
+        refundGatewayId: null,
+        refundReason: null,
+      })
+      await this.bookingRepo.update(booking.id, {
+        status: 'CANCELLED',
+        cancelReason: 'PAYMENT_FAILED',
+        cancelledAt: new Date(),
+        cancelledBy: 'system',
+      })
+      throw new AppError('CARD_REJECTED', translateMpRejection(mpStatusDetail), 402)
+    }
 
     const payment = await this.paymentRepo.create({
       bookingId: booking.id,
@@ -185,4 +221,21 @@ export class CreateBookingUseCase {
       pixQrCodeBase64: pixQrCodeBase64 || undefined
     }
   }
+}
+
+function translateMpRejection(detail: string | null): string {
+  const map: Record<string, string> = {
+    cc_rejected_high_risk:             'Cartão recusado por segurança. Tente outro cartão ou contate seu banco.',
+    cc_rejected_insufficient_amount:   'Saldo insuficiente. Verifique o limite do cartão.',
+    cc_rejected_bad_filled_card_number:'Número do cartão inválido.',
+    cc_rejected_bad_filled_date:       'Data de validade inválida.',
+    cc_rejected_bad_filled_security_code: 'CVV inválido.',
+    cc_rejected_bad_filled_other:      'Dados do cartão inválidos. Verifique e tente novamente.',
+    cc_rejected_card_disabled:         'Cartão desativado. Contate seu banco.',
+    cc_rejected_duplicated_payment:    'Pagamento duplicado. Aguarde alguns minutos e tente novamente.',
+    cc_rejected_other_reason:          'Cartão recusado. Tente outro cartão ou contate seu banco.',
+    cc_rejected_max_attempts:          'Limite de tentativas atingido. Tente outro cartão.',
+    cc_amount_rate_limit_exceeded:     'Limite de valor excedido. Tente um valor menor.',
+  }
+  return detail ? (map[detail] ?? `Cartão recusado (${detail}). Contate seu banco.`) : 'Cartão recusado. Tente outro cartão.'
 }
