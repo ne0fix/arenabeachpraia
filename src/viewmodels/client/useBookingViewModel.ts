@@ -120,55 +120,24 @@ export function useBookingViewModel(courtId: string) {
   }
 
   const handleSlotSelect = (time: string) => {
-    const allSlots = availability?.slots ?? []
-    const thisIdx = allTimes.indexOf(time)
-
-    // Slot já selecionado → remove APENAS esse slot (não afeta os demais)
+    // Seleção individual (toggle): cada horário é marcado/desmarcado de forma
+    // independente. NÃO preenche automaticamente o intervalo entre dois horários
+    // — selecionar 07:00 e 16:00 marca apenas esses dois, não tudo no meio.
     if (selectedSlots.includes(time)) {
       setSelectedSlots(selectedSlots.filter((s) => s !== time))
       setSlotError('')
       return
     }
 
-    // Seleção vazia → inicia com este slot
-    if (selectedSlots.length === 0) {
-      setSelectedSlots([time])
-      setSlotError('')
+    // Não permite selecionar um horário indisponível
+    const slot = (availability?.slots ?? []).find((s) => s.time === time)
+    if (slot && !slot.available) {
+      setSlotError(`O horário ${time} não está disponível.`)
       return
     }
 
-    const selectedIdxs = sortedSelected.map((s) => allTimes.indexOf(s))
-    const firstIdx = selectedIdxs[0]
-    const lastIdx = selectedIdxs[selectedIdxs.length - 1]
-
-    if (thisIdx > lastIdx) {
-      // Expande para a direita a partir do último slot selecionado
-      const slotsToAdd = allSlots.slice(lastIdx + 1, thisIdx + 1)
-      const blocked = slotsToAdd.find((s) => !s.available)
-      if (blocked) {
-        setSlotError(`O horário ${blocked.time} não está disponível.`)
-        return
-      }
-      setSelectedSlots([...selectedSlots, ...slotsToAdd.map((s) => s.time)])
-      setSlotError('')
-    } else if (thisIdx < firstIdx) {
-      // Expande para a esquerda a partir do primeiro slot selecionado
-      const slotsToAdd = allSlots.slice(thisIdx, firstIdx)
-      const blocked = slotsToAdd.find((s) => !s.available)
-      if (blocked) {
-        setSlotError(`O horário ${blocked.time} não está disponível.`)
-        return
-      }
-      setSelectedSlots([...slotsToAdd.map((s) => s.time), ...selectedSlots])
-      setSlotError('')
-    } else {
-      // Clicou dentro do intervalo atual (preenchendo uma lacuna criada por desmarcação)
-      const newSlots = [...selectedSlots, time].sort(
-        (a, b) => allTimes.indexOf(a) - allTimes.indexOf(b)
-      )
-      setSelectedSlots(newSlots)
-      setSlotError('')
-    }
+    setSelectedSlots([...selectedSlots, time])
+    setSlotError('')
   }
 
   const addToCart = () => {
