@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { invalidateAdminData } from './invalidateAdminData'
 
 export function useCancelBookingViewModel(bookingId: string, onSuccess?: () => void) {
   const [reason, setReason] = useState('')
@@ -23,9 +24,7 @@ export function useCancelBookingViewModel(bookingId: string, onSuccess?: () => v
       return res.json()
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin-bookings'] })
-      qc.invalidateQueries({ queryKey: ['admin-stats'] })
-      qc.invalidateQueries({ queryKey: ['booking', bookingId] })
+      invalidateAdminData(qc, bookingId)
       onSuccess?.()
     },
   })

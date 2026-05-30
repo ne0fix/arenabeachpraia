@@ -5,6 +5,7 @@ import { Sidebar } from '@/views/components/layout/admin/Sidebar'
 import { TopBar } from '@/views/components/layout/admin/TopBar'
 import { SocketProvider } from '@/views/providers/SocketProvider'
 import { LiveNotifications } from '@/views/components/admin/LiveNotifications'
+import { AdminDataSync } from '@/views/components/admin/AdminDataSync'
 import { Menu, X } from 'lucide-react'
 import { cn } from '@/core/utils/helpers'
 
@@ -49,6 +50,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </main>
       </div>
       <LiveNotifications />
+      <AdminDataSync />
     </div>
     </SocketProvider>
   )

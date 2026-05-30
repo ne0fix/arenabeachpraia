@@ -5,6 +5,7 @@ import { CancelBookingUseCase } from '@/usecases/bookings/CancelBookingUseCase'
 import { PrismaBookingRepository } from '@/infrastructure/repositories/PrismaBookingRepository'
 import { PrismaPaymentRepository } from '@/infrastructure/repositories/PrismaPaymentRepository'
 import { AppError } from '@/core/errors/AppError'
+import { emitToRoom } from '@/lib/socket-server'
 
 const schema = z.object({
   reason: z.string().min(3, 'Motivo muito curto'),
@@ -35,6 +36,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       refund: result.data.refund,
       isAdmin,
     })
+    // Notifica o painel em tempo real para atualizar todas as telas
+    emitToRoom('admin', 'data:changed', { type: 'booking_cancelled', bookingId: id })
     return NextResponse.json(output)
   } catch (e) {
     if (e instanceof AppError) return NextResponse.json({ message: e.message, code: e.code }, { status: e.statusCode })

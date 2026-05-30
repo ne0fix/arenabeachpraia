@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Eye, XCircle, RotateCcw, X, Hash, CreditCard, CheckCircle2, Clock } from 'lucide-react'
 import { format } from 'date-fns'
@@ -190,6 +190,19 @@ export function BookingTable({ orders, isLoading }: BookingTableProps) {
   const [detailOrder, setDetailOrder] = useState<AdminOrder | null>(null)
   const [cancelModal, setCancelModal] = useState<BookingWithDetails | null>(null)
   const [refundModal, setRefundModal] = useState<BookingWithDetails | null>(null)
+
+  // Mantém o modal de detalhes sincronizado com os dados recarregados após
+  // cancelar/estornar — atualiza o pedido aberto sem precisar reabrir o modal.
+  useEffect(() => {
+    if (!detailOrder) return
+    const updated = orders.find((o) => o.orderId === detailOrder.orderId)
+    if (updated) {
+      if (updated !== detailOrder) setDetailOrder(updated)
+    } else {
+      setDetailOrder(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders])
 
   if (isLoading) {
     return (

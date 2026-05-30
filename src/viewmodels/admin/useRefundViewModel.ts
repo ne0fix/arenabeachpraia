@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { invalidateAdminData } from './invalidateAdminData'
 
 export function useRefundViewModel(bookingId: string, maxAmount: number, onSuccess?: () => void) {
   const [reason, setReason] = useState('Estorno solicitado pelo administrador')
@@ -29,10 +30,7 @@ export function useRefundViewModel(bookingId: string, maxAmount: number, onSucce
     },
     onSuccess: () => {
       setErrorMessage('')
-      qc.invalidateQueries({ queryKey: ['admin-bookings'] })
-      qc.invalidateQueries({ queryKey: ['admin-stats'] })
-      qc.invalidateQueries({ queryKey: ['admin-payments'] })
-      qc.invalidateQueries({ queryKey: ['booking', bookingId] })
+      invalidateAdminData(qc, bookingId)
       onSuccess?.()
     },
     onError: (err: Error) => {
