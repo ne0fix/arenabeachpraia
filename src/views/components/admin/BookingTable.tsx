@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Eye, XCircle, RotateCcw, X, Hash, CreditCard, CheckCircle2, Clock, BadgeCheck, Trash2, Loader2 } from 'lucide-react'
+import { Eye, XCircle, RotateCcw, X, Hash, CreditCard, CheckCircle2, Clock, BadgeCheck, Trash2, Loader2, QrCode, Copy, Check, MessageCircle } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { motion, AnimatePresence } from 'motion/react'
+import Image from 'next/image'
 import { Badge } from '@/views/components/ui/Badge'
 import { formatCurrency } from '@/core/utils/formatCurrency'
 import { CancellationModal } from './CancellationModal'
@@ -52,6 +53,87 @@ const paymentStatusLabel: Record<string, string> = {
 
 function fmtDate(d: BookingWithDetails['date']) {
   return format(new Date(String(d).slice(0, 10) + 'T12:00:00'), 'dd/MM/yy', { locale: ptBR })
+}
+
+// ─── Painel PIX para admin ───────────────────────────────────────────────────
+function PixPanel({
+  pixQrCode, pixQrCodeBase64, expiresAt, waLink,
+}: {
+  pixQrCode: string
+  pixQrCodeBase64: string | null
+  expiresAt: string
+  waLink: string
+}) {
+  const [copied, setCopied] = useState(false)
+
+  const copy = () => {
+    navigator.clipboard.writeText(pixQrCode)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="bg-green-50 border border-green-200 rounded-2xl overflow-hidden">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-green-600 to-emerald-500 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <QrCode className="w-4 h-4 text-white" />
+          <span className="font-headline text-white font-bold text-sm">PIX Aguardando Pagamento</span>
+        </div>
+        <span className="font-headline text-[10px] text-white/80 bg-white/20 px-2 py-0.5 rounded-full font-bold">
+          Válido até {expiresAt}
+        </span>
+      </div>
+
+      <div className="p-4 space-y-3">
+        {/* QR Code */}
+        {pixQrCodeBase64 && (
+          <div className="flex justify-center">
+            <div className="bg-white p-3 rounded-xl shadow border border-green-100">
+              <Image
+                src={`data:image/png;base64,${pixQrCodeBase64}`}
+                alt="QR Code PIX"
+                width={160}
+                height={160}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Chave copia e cola */}
+        <div className="bg-white border border-green-200 rounded-xl p-3">
+          <p className="font-headline text-[9px] text-green-700 uppercase tracking-widest font-bold mb-1.5">
+            PIX Copia e Cola
+          </p>
+          <p className="font-headline text-[10px] text-on-surface-variant break-all leading-relaxed line-clamp-3">
+            {pixQrCode}
+          </p>
+        </div>
+
+        {/* Botões */}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={copy}
+            className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-headline text-[11px] font-bold transition-all ${
+              copied ? 'bg-green-600 text-white' : 'bg-white border border-green-300 text-green-700 hover:bg-green-50'
+            }`}
+          >
+            {copied ? <><Check className="w-3.5 h-3.5" /> Copiado!</> : <><Copy className="w-3.5 h-3.5" /> Copiar Chave</>}
+          </button>
+          <a
+            href={waLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#25D366] text-white font-headline text-[11px] font-bold hover:bg-[#1ebe5b] transition-all"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+            Enviar WhatsApp
+          </a>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // ─── Modal de detalhes do pedido ────────────────────────────────────────────
@@ -175,9 +257,52 @@ function OrderDetailModal({
 
           {order.gatewayId && (
             <p className="font-headline text-[10px] text-on-surface-variant">
-              ID transação Mercado Pago: <span className="font-bold">{order.gatewayId}</span>
+              ID transação MP: <span className="font-bold">{order.gatewayId}</span>
             </p>
           )}
+
+          {/* ── PIX aguardando pagamento — chave + QR + botão WhatsApp ── */}
+          {order.paymentMethod === 'PIX' && order.paymentStatus === 'PENDING' && (() => {
+            const pixBooking = order.bookings.find(b => (b as any).payment?.pixQrCode)
+            const pixQrCode       = (pixBooking as any)?.payment?.pixQrCode as string | null
+            const pixQrCodeBase64 = (pixBooking as any)?.payment?.pixQrCodeBase64 as string | null
+            const pixExpiration   = (pixBooking as any)?.payment?.pixExpiration as string | null
+            if (!pixQrCode) return null
+
+            // Monta a lista de horários para a mensagem do WhatsApp
+            const activeBookings = order.bookings.filter(b => b.status !== 'CANCELLED')
+            const slotLines = activeBookings.map(b =>
+              `• ${b.court.name} — ${fmtDate(b.date)} às ${b.startTime}`
+            ).join('\n')
+
+            const total = formatCurrency(order.activeValue ?? order.totalValue)
+            const expiresAt = pixExpiration
+              ? format(new Date(pixExpiration), "dd/MM 'às' HH:mm", { locale: ptBR })
+              : '30 min'
+
+            const waMsg = encodeURIComponent(
+              `Olá ${order.user.name.split(' ')[0]}! 🏖️\n\n` +
+              `Segue o código PIX para confirmar sua reserva na *Arena Beach Serra*:\n\n` +
+              `${pixQrCode}\n\n` +
+              `*Horários:*\n${slotLines}\n\n` +
+              `*Total:* ${total}\n` +
+              `*Válido até:* ${expiresAt}\n\n` +
+              `Após o pagamento, sua reserva é confirmada automaticamente. ✅`
+            )
+            const phone = (order.user.phone ?? '').replace(/\D/g, '')
+            const waLink = phone
+              ? `https://wa.me/55${phone}?text=${waMsg}`
+              : `https://wa.me/?text=${waMsg}`
+
+            return (
+              <PixPanel
+                pixQrCode={pixQrCode}
+                pixQrCodeBase64={pixQrCodeBase64}
+                expiresAt={expiresAt}
+                waLink={waLink}
+              />
+            )
+          })()}
 
           {/* Horários do pedido */}
           <div className="space-y-2">
