@@ -95,6 +95,12 @@ export class MercadoPagoService {
 
   async createCardPayment(input: CreateCardInput) {
     try {
+      const notificationUrl = this.notificationUrl
+        ?? (() => {
+          const base = (process.env.NEXTAUTH_URL ?? '').trim().replace(/\/+$/, '')
+          return base.startsWith('https://') ? `${base}/api/payments/webhook` : undefined
+        })()
+
       const description = this.buildDescription(input.description)
       const meta = typeof input.description === 'string'
         ? { booking_id: input.externalReference, summary: input.description }
@@ -120,6 +126,7 @@ export class MercadoPagoService {
             ...(cpf ? { identification: { type: 'CPF', number: cpf } } : {}),
           },
           metadata: meta,
+          ...(notificationUrl ? { notification_url: notificationUrl } : {}),
         },
         requestOptions: { idempotencyKey: input.externalReference },
       })
