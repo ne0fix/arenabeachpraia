@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Users, Clock, X, Plus, Loader2 } from 'lucide-react'
+import { Users, Clock, X, Plus, Loader2, CalendarX } from 'lucide-react'
 import { formatCurrency } from '@/core/utils/formatCurrency'
 import { CourtImageCarousel } from '@/views/components/business/CourtImageCarousel'
 import { CourtScheduleTabs } from '@/views/components/admin/CourtScheduleTabs'
@@ -43,7 +43,13 @@ const defaultForm: NewCourtForm = {
 export function AdminCourtsClient({ initialCourts }: { initialCourts: Court[] }) {
   const [courts, setCourts] = useState(initialCourts)
   const [modalCourt, setModalCourt] = useState<Court | null>(null)
+  const [modalInitialTab, setModalInitialTab] = useState<'config' | 'bloqueio' | 'agenda'>('config')
   const [showCreate, setShowCreate] = useState(false)
+
+  const openModal = (court: Court, tab: 'config' | 'bloqueio' | 'agenda' = 'config') => {
+    setModalInitialTab(tab)
+    setModalCourt(court)
+  }
   const [form, setForm] = useState<NewCourtForm>(defaultForm)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState('')
@@ -145,13 +151,21 @@ export function AdminCourtsClient({ initialCourts }: { initialCourts: Court[] })
                   </div>
                 </div>
 
-                <div className="mt-auto grid grid-cols-3 gap-2">
+                <div className="mt-auto grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => setModalCourt(court)}
-                    className="col-span-3 bg-primary/10 text-primary hover:bg-primary/20 px-3 py-2.5 rounded-xl font-headline text-[10px] font-bold uppercase transition-all text-center"
+                    onClick={() => openModal(court, 'config')}
+                    className="bg-primary/10 text-primary hover:bg-primary/20 px-3 py-2.5 rounded-xl font-headline text-[10px] font-bold uppercase transition-all text-center"
                   >
                     Gerenciar Horários
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openModal(court, 'bloqueio')}
+                    className="flex items-center justify-center gap-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 px-3 py-2.5 rounded-xl font-headline text-[10px] font-bold uppercase transition-all"
+                  >
+                    <CalendarX className="w-3.5 h-3.5" />
+                    Bloquear Data
                   </button>
                   <Link
                     href="/admin/settings"
@@ -194,7 +208,7 @@ export function AdminCourtsClient({ initialCourts }: { initialCourts: Court[] })
               </button>
             </div>
             <div className="overflow-y-auto flex-1 p-5">
-              <CourtScheduleTabs court={modalCourt} onCourtUpdated={handleCourtUpdated} />
+              <CourtScheduleTabs court={modalCourt} onCourtUpdated={handleCourtUpdated} initialTab={modalInitialTab} />
             </div>
           </div>
         </div>

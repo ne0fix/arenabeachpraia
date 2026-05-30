@@ -14,7 +14,24 @@ import { ptBR } from 'date-fns/locale'
 import { cn } from '@/core/utils/helpers'
 import type { Court } from '@/models/entities/Court'
 
-interface Unavailability { id: string; date: string; reason: string | null }
+type BlockPeriod = 'MORNING' | 'AFTERNOON' | 'ALL_DAY'
+interface Unavailability { id: string; date: string; period: BlockPeriod; reason: string | null }
+
+const PERIOD_LABEL: Record<BlockPeriod, string> = {
+  MORNING:   'Manhã',
+  AFTERNOON: 'Tarde',
+  ALL_DAY:   'Dia inteiro',
+}
+const PERIOD_COLOR: Record<BlockPeriod, string> = {
+  MORNING:   'bg-amber-500/15 text-amber-700 border-amber-300/50',
+  AFTERNOON: 'bg-orange-500/15 text-orange-700 border-orange-300/50',
+  ALL_DAY:   'bg-red-500/15 text-red-600 border-red-300/50',
+}
+const PERIOD_DOT: Record<BlockPeriod, string> = {
+  MORNING:   'M',
+  AFTERNOON: 'T',
+  ALL_DAY:   '✕',
+}
 interface SlotInfo {
   time: string
   available: boolean
@@ -200,6 +217,7 @@ function TabBloqueio({ court }: { court: Court }) {
   const [loading, setLoading] = useState(true)
   const [month, setMonth] = useState(new Date())
   const [sel, setSel] = useState<string | null>(null)
+  const [period, setPeriod] = useState<BlockPeriod>('ALL_DAY')
   const [reason, setReason] = useState('')
   const [adding, setAdding] = useState(false)
   const [err, setErr] = useState('')
@@ -208,13 +226,24 @@ function TabBloqueio({ court }: { court: Court }) {
     setLoading(true)
     try {
       const r = await fetch(`/api/admin/courts/${court.id}/unavailability`)
-      setItems(Array.isArray(await r.json()) ? await r.clone().json() : [])
+      const data = await r.json()
+      setItems(Array.isArray(data) ? data : [])
     } finally { setLoading(false) }
   }, [court.id])
 
   useEffect(() => { fetch_() }, [fetch_])
 
-  const blocked = new Set(items.map(u => u.date))
+  // Agrupa por data para exibir indicadores no calendário
+  const blockedByDate = new Map<string, BlockPeriod[]>()
+  for (const u of items) {
+    const arr = blockedByDate.get(u.date) ?? []
+    arr.push(u.period)
+    blockedByDate.set(u.date, arr)
+  }
+  const isFullDay = (ds: string) => {
+    const periods = blockedByDate.get(ds) ?? []
+    return periods.includes('ALL_DAY') || (periods.includes('MORNING') && periods.includes('AFTERNOON'))
+  }
   const calStart = startOfMonth(month)
   const calEnd = endOfMonth(month)
   const calDays = eachDayOfInterval({ start: calStart, end: calEnd })
@@ -226,11 +255,14 @@ function TabBloqueio({ court }: { court: Court }) {
     try {
       const r = await fetch(`/api/admin/courts/${court.id}/unavailability`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: sel, reason: reason.trim() || undefined }),
+        body: JSON.stringify({ date: sel, period, reason: reason.trim() || undefined }),
       })
-      if (r.status === 409) { setErr('Data já bloqueada.'); return }
-      if (!r.ok) throw new Error()
-      await fetch_(); setSel(null); setReason('')
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}))
+        setErr(d.error ?? 'Falha ao bloquear.')
+        return
+      }
+      await fetch_(); setSel(null); setReason(''); setPeriod('ALL_DAY')
     } catch { setErr('Falha ao bloquear.') }
     finally { setAdding(false) }
   }
@@ -264,30 +296,63 @@ function TabBloqueio({ court }: { court: Court }) {
           {calDays.map(day => {
             const ds = format(day, 'yyyy-MM-dd')
             const isPast = isBefore(day, TODAY)
-            const isBlocked = blocked.has(ds)
+            const periods = blockedByDate.get(ds) ?? []
+            const isBlocked = periods.length > 0
+            const fullDay = isFullDay(ds)
             const isSelected = sel === ds
             return (
               <button key={ds} type="button" disabled={isPast}
                 onClick={() => { setSel(isSelected ? null : ds); setErr('') }}
-                className={cn('aspect-square rounded-lg font-headline text-xs font-bold transition-all flex items-center justify-center',
+                className={cn('aspect-square rounded-lg font-headline text-[10px] font-bold transition-all flex flex-col items-center justify-center gap-0.5 relative',
                   isPast && 'text-outline/30 cursor-not-allowed',
-                  !isPast && isBlocked && 'bg-red-500/15 text-red-600 border border-red-300/50',
+                  !isPast && fullDay && 'bg-red-500/15 text-red-600 border border-red-300/50',
+                  !isPast && isBlocked && !fullDay && 'bg-amber-500/15 text-amber-700 border border-amber-300/50',
                   !isPast && !isBlocked && !isSelected && isToday(day) && 'bg-primary/10 text-primary border border-primary/30',
                   !isPast && !isBlocked && !isSelected && !isToday(day) && 'hover:bg-surface-container text-on-surface',
                   isSelected && 'bg-primary text-white shadow-sm',
                 )}>
-                {format(day, 'd')}
+                <span>{format(day, 'd')}</span>
+                {isBlocked && !isSelected && (
+                  <span className="text-[7px] font-bold leading-none">
+                    {fullDay ? '✕' : periods.map(p => PERIOD_DOT[p]).join('')}
+                  </span>
+                )}
               </button>
             )
           })}
         </div>
       </div>
 
-      {sel && !blocked.has(sel) && (
+      {sel && !isFullDay(sel) && (
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
           <p className="font-headline text-xs font-bold text-amber-800">
             Bloquear {format(new Date(sel + 'T12:00:00'), "dd 'de' MMMM", { locale: ptBR })}
           </p>
+
+          {/* Seletor de período */}
+          <div>
+            <p className="font-headline text-[9px] font-bold text-amber-700 uppercase tracking-widest mb-2">Período</p>
+            <div className="grid grid-cols-3 gap-1.5">
+              {(['MORNING', 'AFTERNOON', 'ALL_DAY'] as BlockPeriod[]).map((p) => {
+                const alreadyBlocked = (blockedByDate.get(sel) ?? []).includes(p)
+                return (
+                  <button key={p} type="button"
+                    disabled={alreadyBlocked}
+                    onClick={() => setPeriod(p)}
+                    className={cn(
+                      'py-2 rounded-xl font-headline text-[10px] font-bold border transition-all',
+                      alreadyBlocked && 'opacity-40 cursor-not-allowed bg-surface-container border-outline-variant/20',
+                      !alreadyBlocked && period === p && 'bg-amber-600 text-white border-amber-600 shadow-sm',
+                      !alreadyBlocked && period !== p && 'bg-white text-amber-800 border-amber-200 hover:bg-amber-100',
+                    )}>
+                    {PERIOD_LABEL[p]}
+                    {alreadyBlocked && ' ✓'}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           <input type="text" value={reason} onChange={e => setReason(e.target.value)}
             placeholder="Motivo (opcional)"
             className="w-full bg-white border border-amber-200 rounded-xl px-3 py-2 font-headline text-xs focus:outline-none focus:border-amber-400" />
@@ -296,7 +361,7 @@ function TabBloqueio({ court }: { court: Court }) {
             <button type="button" onClick={add} disabled={adding}
               className="flex-1 bg-amber-600 hover:bg-amber-700 text-white rounded-xl py-2.5 font-headline text-[10px] font-bold uppercase flex items-center justify-center gap-1.5 disabled:opacity-60">
               {adding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CalendarX className="w-3.5 h-3.5" />}
-              Confirmar Bloqueio
+              Bloquear {PERIOD_LABEL[period]}
             </button>
             <button type="button" onClick={() => { setSel(null); setErr('') }}
               className="px-4 bg-surface-container hover:bg-outline-variant/30 rounded-xl font-headline text-[10px] font-bold uppercase">
@@ -316,12 +381,17 @@ function TabBloqueio({ court }: { court: Court }) {
           : (
             <div className="space-y-2">
               {items.map(u => (
-                <div key={u.id} className="flex items-center gap-3 bg-surface-container rounded-xl px-3 py-2.5 border border-outline-variant/20">
-                  <CalendarX className="w-4 h-4 text-red-500 flex-shrink-0" />
+                <div key={u.id} className={cn('flex items-center gap-3 rounded-xl px-3 py-2.5 border', PERIOD_COLOR[u.period])}>
+                  <CalendarX className="w-4 h-4 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="font-headline text-xs font-bold text-on-surface">
-                      {format(new Date(u.date + 'T12:00:00'), "dd 'de' MMMM yyyy", { locale: ptBR })}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-headline text-xs font-bold text-on-surface">
+                        {format(new Date(u.date + 'T12:00:00'), "dd 'de' MMMM yyyy", { locale: ptBR })}
+                      </p>
+                      <span className="font-headline text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-white/60">
+                        {PERIOD_LABEL[u.period]}
+                      </span>
+                    </div>
                     {u.reason && <p className="font-headline text-[10px] text-on-surface-variant truncate">{u.reason}</p>}
                   </div>
                   <button type="button" onClick={() => remove(u.id)} className="p-1.5 hover:bg-red-50 rounded-lg group flex-shrink-0">
@@ -428,11 +498,13 @@ type Tab = 'config' | 'bloqueio' | 'agenda'
 export function CourtScheduleTabs({
   court,
   onCourtUpdated,
+  initialTab = 'config',
 }: {
   court: Court
   onCourtUpdated?: (updated: Court) => void
+  initialTab?: Tab
 }) {
-  const [tab, setTab] = useState<Tab>('config')
+  const [tab, setTab] = useState<Tab>(initialTab)
   const [currentCourt, setCurrentCourt] = useState(court)
 
   useEffect(() => { setCurrentCourt(court) }, [court])

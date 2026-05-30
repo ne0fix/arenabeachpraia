@@ -50,8 +50,13 @@ export class PrismaCourtRepository implements ICourtRepository {
       }),
     ])
 
-    if (unavailabilities.length > 0) {
-      return { date, slots: [] }
+    // Verifica bloqueios por período
+    const hasAllDay  = unavailabilities.some((u) => u.period === 'ALL_DAY')
+    const hasMorning = unavailabilities.some((u) => u.period === 'MORNING')
+    const hasAfternoon = unavailabilities.some((u) => u.period === 'AFTERNOON')
+
+    if (hasAllDay) {
+      return { date, slots: [], blockedPeriod: 'ALL_DAY' }
     }
 
     // Horário atual no Brasil (UTC-3) para filtrar slots já passados
@@ -89,10 +94,10 @@ export class PrismaCourtRepository implements ICourtRepository {
       }
     }
 
-    if (court.morningEnabled) {
+    if (court.morningEnabled && !hasMorning) {
       generatePeriodSlots(court.morningOpen, court.morningClose)
     }
-    if (court.afternoonEnabled) {
+    if (court.afternoonEnabled && !hasAfternoon) {
       generatePeriodSlots(court.afternoonOpen, court.afternoonClose)
     }
 
@@ -101,7 +106,12 @@ export class PrismaCourtRepository implements ICourtRepository {
       generatePeriodSlots(court.openTime, court.closeTime)
     }
 
-    return { date, slots }
+    const blockedPeriod = hasMorning && hasAfternoon ? 'ALL_DAY'
+      : hasMorning ? 'MORNING'
+      : hasAfternoon ? 'AFTERNOON'
+      : undefined
+
+    return { date, slots, blockedPeriod }
   }
 
   async create(data: Omit<Court, 'id' | 'createdAt' | 'updatedAt'>): Promise<Court> {

@@ -1,7 +1,7 @@
 'use client'
 
 import { use } from 'react'
-import { ArrowLeft, Users, ShoppingCart, Clock, AlertCircle, Check, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Users, ShoppingCart, Clock, AlertCircle, Check, ChevronRight, Ban } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { motion, AnimatePresence } from 'motion/react'
@@ -98,13 +98,44 @@ export default function BookingPage({ params }: BookingPageProps) {
 
         <section className="mb-8">
           <h3 className="font-headline text-base md:text-lg text-primary mb-4 md:mb-6 font-bold">Horários Disponíveis</h3>
+
+          {/* Aviso de bloqueio parcial ou total */}
+          {!vm.loadingSlots && (vm.availability as any)?.blockedPeriod && (
+            <div className={cn(
+              'mb-4 rounded-2xl p-4 flex items-start gap-3 border',
+              (vm.availability as any).blockedPeriod === 'ALL_DAY'
+                ? 'bg-red-50 border-red-200'
+                : 'bg-amber-50 border-amber-200'
+            )}>
+              <Ban className={cn('w-5 h-5 flex-shrink-0 mt-0.5',
+                (vm.availability as any).blockedPeriod === 'ALL_DAY' ? 'text-red-500' : 'text-amber-600'
+              )} />
+              <div>
+                <p className={cn('font-headline text-sm font-bold',
+                  (vm.availability as any).blockedPeriod === 'ALL_DAY' ? 'text-red-700' : 'text-amber-800'
+                )}>
+                  {(vm.availability as any).blockedPeriod === 'ALL_DAY'
+                    ? 'Quadra reservada — dia inteiro indisponível'
+                    : (vm.availability as any).blockedPeriod === 'MORNING'
+                    ? 'Período da manhã reservado — apenas tarde disponível'
+                    : 'Período da tarde reservado — apenas manhã disponível'}
+                </p>
+                <p className="font-headline text-xs text-on-surface-variant mt-0.5">
+                  {(vm.availability as any).blockedPeriod === 'ALL_DAY'
+                    ? 'Nenhum horário pode ser reservado nesta data. Escolha outro dia.'
+                    : 'Os horários do período reservado não estão disponíveis para agendamento.'}
+                </p>
+              </div>
+            </div>
+          )}
+
           {vm.loadingSlots ? (
             <Loader size="sm" />
-          ) : !vm.availability?.slots.length ? (
+          ) : !vm.availability?.slots.length && !(vm.availability as any)?.blockedPeriod ? (
             <p className="font-headline text-sm text-on-surface-variant text-center py-8">
               Nenhum horário disponível para esta data.
             </p>
-          ) : (
+          ) : !vm.availability?.slots.length && (vm.availability as any)?.blockedPeriod === 'ALL_DAY' ? null : (
             <div className="space-y-5">
               {vm.slotGroups.map((group) => (
                 <div key={group.label}>

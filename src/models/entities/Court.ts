@@ -36,4 +36,5 @@ export interface TimeSlot {
 export interface DayAvailability {
   date: string
   slots: TimeSlot[]
+  blockedPeriod?: 'MORNING' | 'AFTERNOON' | 'ALL_DAY'
 }

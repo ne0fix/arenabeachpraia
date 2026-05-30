@@ -151,15 +151,23 @@ enum CourtType {
   EXCLUSIVE
 }
 
+enum BlockPeriod {
+  MORNING
+  AFTERNOON
+  ALL_DAY
+}
+
 model CourtUnavailability {
-  id        String   @id @default(cuid())
+  id        String      @id @default(cuid())
   courtId   String
   date      DateTime
+  period    BlockPeriod @default(ALL_DAY)
   reason    String?
-  createdAt DateTime @default(now())
+  createdAt DateTime    @default(now())
 
   court Court @relation(fields: [courtId], references: [id], onDelete: Cascade)
 
+  @@unique([courtId, date, period])
   @@map("court_unavailabilities")
 }
 
