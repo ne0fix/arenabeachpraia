@@ -382,21 +382,54 @@ function OrderDetailModal({
         </div>
 
         {showPixPanel ? (
-          /* ── Layout 2 colunas: info + horários | Pix QR ── */
+          /* ── Layout Pix: 4 cards em linha + 2 colunas abaixo ── */
           <div
-            className="overflow-y-auto flex-1 px-6 py-5"
+            className="overflow-y-auto flex-1 px-6 py-4 space-y-4"
             onClick={(e) => { if (confirmCancelAll) { setConfirmCancelAll(false); e.stopPropagation() } }}
           >
-            <div className="grid grid-cols-2 gap-5 items-start">
-              {/* Coluna esquerda: resumo + horários */}
-              <div className="space-y-4">
-                {summaryGrid}
+            {/* Linha 1: 4 cards compactos lado a lado */}
+            <div className="grid grid-cols-4 gap-2">
+              <div className="bg-surface-container rounded-xl px-3 py-2">
+                <p className="font-headline text-[9px] uppercase tracking-widest text-on-surface-variant font-bold flex items-center gap-1 mb-0.5">
+                  <Hash className="w-2.5 h-2.5" /> Nº Pedido
+                </p>
+                <p className="font-headline text-[11px] text-on-surface font-bold leading-tight">{order.accessCode}</p>
+              </div>
+              <div className="bg-surface-container rounded-xl px-3 py-2">
+                <p className="font-headline text-[9px] uppercase tracking-widest text-on-surface-variant font-bold flex items-center gap-1 mb-0.5">
+                  <CreditCard className="w-2.5 h-2.5" /> Pagamento
+                </p>
+                <p className="font-headline text-[11px] text-on-surface font-bold leading-tight">
+                  {order.paymentMethod ? paymentLabel[order.paymentMethod] : '—'}
+                </p>
+              </div>
+              <div className={`rounded-xl px-3 py-2 ${hasPartialRefund ? 'bg-amber-50 border border-amber-200' : 'bg-surface-container'}`}>
+                <p className="font-headline text-[9px] uppercase tracking-widest text-on-surface-variant font-bold flex items-center gap-1 mb-0.5">
+                  {paid ? <CheckCircle2 className="w-2.5 h-2.5 text-green-600" /> : hasPartialRefund ? <CheckCircle2 className="w-2.5 h-2.5 text-amber-600" /> : <Clock className="w-2.5 h-2.5 text-amber-600" />}
+                  Status
+                </p>
+                <p className={`font-headline text-[11px] font-bold leading-tight ${paid ? 'text-green-700' : hasPartialRefund ? 'text-amber-700' : 'text-amber-700'}`}>
+                  {order.paymentStatus ? (paymentStatusLabel[order.paymentStatus] ?? order.paymentStatus) : '—'}
+                </p>
+              </div>
+              <div className="bg-surface-container rounded-xl px-3 py-2">
+                <p className="font-headline text-[9px] uppercase tracking-widest text-on-surface-variant font-bold mb-0.5">
+                  {refundedAmount > 0 ? 'Valor Ativo' : 'Total'}
+                </p>
+                <p className="font-headline text-[11px] text-primary font-bold leading-tight">
+                  {formatCurrency(order.activeValue ?? order.totalValue)}
+                </p>
+              </div>
+            </div>
+
+            {/* Linha 2: horários | QR Code Pix */}
+            <div className="grid grid-cols-2 gap-4 items-start">
+              <div className="space-y-3">
                 {refundRow}
                 {gatewayRow}
                 {slotsList}
               </div>
-              {/* Coluna direita: QR Code Pix */}
-              <div className="sticky top-0">
+              <div>
                 <PixPanel
                   pixQrCode={pixQrCode!}
                   pixQrCodeBase64={pixQrCodeBase64}
