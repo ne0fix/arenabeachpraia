@@ -19,6 +19,7 @@ export interface CreateCardInput {
   externalReference: string
   amount: number
   payerEmail: string
+  payerCpf?: string
   token: string
   paymentMethodId: string
   description: PaymentDescription | string
@@ -104,6 +105,7 @@ export class MercadoPagoService {
             end_time: input.description.endTime,
             booking_id: input.externalReference,
           }
+      const cpf = input.payerCpf?.replace(/\D/g, '')
       const result = await this.paymentClient.create({
         body: {
           transaction_amount: input.amount,
@@ -113,7 +115,10 @@ export class MercadoPagoService {
           description,
           statement_descriptor: 'ARENA BEACH SERRA',
           external_reference: input.externalReference,
-          payer: { email: input.payerEmail },
+          payer: {
+            email: input.payerEmail,
+            ...(cpf ? { identification: { type: 'CPF', number: cpf } } : {}),
+          },
           metadata: meta,
         },
         requestOptions: { idempotencyKey: input.externalReference },

@@ -20,6 +20,7 @@ export interface CreateBookingInput {
   paymentMethod: PaymentMethod
   paymentToken?: string
   cardBrand?: string
+  payerCpf?: string
   sport?: string
 }
 
@@ -112,6 +113,7 @@ export class CreateBookingUseCase {
           externalReference: booking.id,
           amount: totalValue,
           payerEmail: input.userEmail,
+          payerCpf: input.payerCpf,
           token: input.paymentToken ?? '',
           paymentMethodId: input.cardBrand ?? 'visa',
           description: paymentDescription,

@@ -21,6 +21,7 @@ const batchSchema = z.object({
   paymentMethod: z.enum(['PIX', 'CREDIT_CARD', 'DEBIT_CARD']),
   paymentToken: z.string().optional(),
   cardBrand: z.string().optional(),
+  payerCpf: z.string().optional(),
 })
 
 export async function POST(req: Request) {
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: 'Dados inválidos', errors: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { items, paymentMethod, paymentToken, cardBrand } = parsed.data
+  const { items, paymentMethod, paymentToken, cardBrand, payerCpf } = parsed.data
 
   // Buscar quadras
   const courtIds = [...new Set(items.map(i => i.courtId))]
@@ -140,6 +141,7 @@ export async function POST(req: Request) {
         externalReference: primaryBookingId,
         amount: totalAmount,
         payerEmail: session.user.email!,
+        payerCpf,
         token: paymentToken ?? '',
         paymentMethodId: cardBrand ?? 'visa',
         description,

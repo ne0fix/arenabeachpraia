@@ -72,7 +72,7 @@ export function usePaymentViewModel() {
   const sport = sportsParam ? decodeURIComponent(sportsParam) : undefined
 
   const { mutateAsync: createSingleBooking, isPending: singlePending } = useMutation({
-    mutationFn: async (data: { paymentToken?: string; cardBrand?: string }) => {
+    mutationFn: async (data: { paymentToken?: string; cardBrand?: string; payerCpf?: string }) => {
       const res = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -84,6 +84,7 @@ export function usePaymentViewModel() {
           paymentMethod: method,
           paymentToken: data.paymentToken,
           cardBrand: data.cardBrand,
+          payerCpf: data.payerCpf,
           sport,
         }),
       })
@@ -109,7 +110,7 @@ export function usePaymentViewModel() {
     },
   })
 
-  const createBatchBooking = async (cardData?: { paymentToken: string; cardBrand: string }) => {
+  const createBatchBooking = async (cardData?: { paymentToken: string; cardBrand: string; payerCpf?: string }) => {
     setBatchPending(true)
     try {
       const items = cart.items.map(i => ({
@@ -129,6 +130,7 @@ export function usePaymentViewModel() {
           paymentMethod: method,
           paymentToken: cardData?.paymentToken,
           cardBrand: cardData?.cardBrand,
+          payerCpf: cardData?.payerCpf,
         }),
       })
 
@@ -240,11 +242,12 @@ export function usePaymentViewModel() {
     setTokenizing(false)
 
     // ── Passo 2: criar reserva com o token (falhas redirecionam para a página de erro) ──
+    const payerCpf = (cardData.cpf ?? '').replace(/\D/g, '')
     if (isBatch) {
-      await createBatchBooking({ paymentToken, cardBrand })
+      await createBatchBooking({ paymentToken, cardBrand, payerCpf })
     } else {
       // useMutation com onError já redireciona para PAYMENT_FAILED em caso de falha
-      await createSingleBooking({ paymentToken, cardBrand }).catch(() => {})
+      await createSingleBooking({ paymentToken, cardBrand, payerCpf }).catch(() => {})
     }
   }
 

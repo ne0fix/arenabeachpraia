@@ -16,6 +16,7 @@ const createSchema = z.object({
   paymentMethod: z.enum(['PIX', 'CREDIT_CARD', 'DEBIT_CARD']),
   paymentToken: z.string().optional(),
   cardBrand: z.string().optional(),
+  payerCpf: z.string().optional(),
   sport: z.string().optional(),
 })
 
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
     const output = await useCase.execute({
       ...result.data,
       userId: session.user.id,
-      userEmail: session.user.email
+      userEmail: session.user.email,
     })
 
     // Notifica admin em tempo real sobre novo agendamento
