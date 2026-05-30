@@ -106,6 +106,18 @@ export interface Transaction {
       phone: string | null;
     };
   };
+  // Pedido agrupado (orderId): quantidade de horários e a lista detalhada.
+  // itemCount === 1 representa uma reserva única.
+  itemCount?: number;
+  bookings?: Array<{
+    id: string;
+    date: Date;
+    startTime: string;
+    endTime: string;
+    court: { id: string; name: string };
+    amount: number;
+    status: PaymentStatus;
+  }>;
 }
 
 export interface PaginatedResult<T> {

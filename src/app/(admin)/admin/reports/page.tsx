@@ -16,6 +16,32 @@ const PERIODS = [
   { key: 'monthly', label: 'Mensal' },
 ] as const
 
+// Agrupa os agendamentos por pedido (orderId) para exibir unificado, como no
+// menu Agendamentos. Reservas antigas sem orderId = pedido individual.
+function groupReportOrders(bookings: any[]) {
+  const map = new Map<string, any[]>()
+  for (const b of bookings) {
+    const key = b.orderId ?? b.id
+    const arr = map.get(key)
+    if (arr) arr.push(b)
+    else map.set(key, [b])
+  }
+  return Array.from(map.entries()).map(([orderId, items]) => {
+    const sorted = [...items].sort(
+      (a, b) => +new Date(a.date) - +new Date(b.date) || String(a.startTime).localeCompare(String(b.startTime))
+    )
+    const first = sorted[0]
+    const courts = Array.from(new Set(items.map((b) => b.court?.name).filter(Boolean)))
+    return {
+      orderId,
+      first,
+      count: items.length,
+      courts,
+      total: items.reduce((s, b) => s + Number(b.payment?.amount ?? b.totalValue), 0),
+    }
+  })
+}
+
 export default function AdminReportsPage() {
   const vm = useReportsViewModel()
   const summary = vm.reportData?.summary
@@ -115,47 +141,54 @@ export default function AdminReportsPage() {
         )}
       </div>
 
-      {vm.reportData?.bookings && vm.reportData.bookings.length > 0 && (
-        <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 sun-shadow overflow-hidden">
-          <div className="px-6 py-4 border-b border-outline-variant/30 flex items-center justify-between">
-            <h3 className="font-headline text-lg text-on-surface font-bold">
-              Agendamentos ({vm.reportData.bookings.length})
-            </h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-surface-container border-b border-outline-variant/30">
-                  {['Data', 'Quadra', 'Cliente', 'Horário', 'Valor', 'Status', 'Pagamento'].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left font-headline text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-outline-variant/20">
-                {vm.reportData.bookings.slice(0, 50).map((b: any) => (
-                  <tr key={b.id} className="hover:bg-surface-container/50 transition-colors">
-                    <td className="px-4 py-3 font-headline text-xs text-on-surface-variant whitespace-nowrap">
-                      {new Date(String(b.date).slice(0, 10) + 'T12:00:00').toLocaleDateString('pt-BR')}
-                    </td>
-                    <td className="px-4 py-3 font-headline text-sm text-on-surface">{b.court?.name}</td>
-                    <td className="px-4 py-3 font-headline text-sm text-on-surface">{b.user?.name}</td>
-                    <td className="px-4 py-3 font-headline text-sm text-on-surface">{b.startTime}</td>
-                    <td className="px-4 py-3 font-headline text-sm text-primary font-bold">
-                      {formatCurrency(Number(b.totalValue))}
-                    </td>
-                    <td className="px-4 py-3 font-headline text-xs text-on-surface-variant">{b.status}</td>
-                    <td className="px-4 py-3 font-headline text-xs text-on-surface-variant">
-                      {b.payment?.method ?? '—'}
-                    </td>
+      {vm.reportData?.bookings && vm.reportData.bookings.length > 0 && (() => {
+        const orders = groupReportOrders(vm.reportData.bookings)
+        return (
+          <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 sun-shadow overflow-hidden">
+            <div className="px-6 py-4 border-b border-outline-variant/30 flex items-center justify-between">
+              <h3 className="font-headline text-lg text-on-surface font-bold">
+                Pedidos ({orders.length})
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-surface-container border-b border-outline-variant/30">
+                    {['Data', 'Quadra', 'Cliente', 'Pedido', 'Valor', 'Status', 'Pagamento'].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left font-headline text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-outline-variant/20">
+                  {orders.slice(0, 50).map((o) => (
+                    <tr key={o.orderId} className="hover:bg-surface-container/50 transition-colors">
+                      <td className="px-4 py-3 font-headline text-xs text-on-surface-variant whitespace-nowrap">
+                        {new Date(String(o.first.date).slice(0, 10) + 'T12:00:00').toLocaleDateString('pt-BR')}
+                      </td>
+                      <td className="px-4 py-3 font-headline text-sm text-on-surface">
+                        {o.courts.length === 1 ? o.courts[0] : `${o.courts.length} quadras`}
+                      </td>
+                      <td className="px-4 py-3 font-headline text-sm text-on-surface">{o.first.user?.name}</td>
+                      <td className="px-4 py-3 font-headline text-sm text-on-surface whitespace-nowrap">
+                        {o.count > 1 ? <span className="font-bold text-primary">{o.count} horários</span> : o.first.startTime}
+                      </td>
+                      <td className="px-4 py-3 font-headline text-sm text-primary font-bold">
+                        {formatCurrency(o.total)}
+                      </td>
+                      <td className="px-4 py-3 font-headline text-xs text-on-surface-variant">{o.first.status}</td>
+                      <td className="px-4 py-3 font-headline text-xs text-on-surface-variant">
+                        {o.first.payment?.method ?? '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

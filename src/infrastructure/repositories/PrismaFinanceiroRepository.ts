@@ -331,67 +331,111 @@ export class PrismaFinanceiroRepository implements IFinanceiroRepository {
       ];
     }
 
-    const [total, payments] = await Promise.all([
-      prisma.payment.count({ where }),
-      prisma.payment.findMany({
-        where,
-        include: {
-          booking: {
-            include: {
-              court: true,
-              user: true,
-            },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-    ]);
-
-    // Summary considera receita confirmada — exclui pendentes de estorno manual
-    const allFiltered = await prisma.payment.findMany({
+    // Busca todos os pagamentos filtrados (com a reserva) para agrupar por pedido.
+    const allPayments = await prisma.payment.findMany({
       where,
-      select: { status: true, amount: true, refundAmount: true, refundReason: true },
+      include: {
+        booking: {
+          include: { court: true, user: true },
+        },
+      },
+      orderBy: { createdAt: "desc" },
     });
-    const confirmedSum = allFiltered
+
+    // Receita confirmada (soma por pagamento — totaliza corretamente o pedido):
+    // exclui pendentes de estorno manual.
+    const confirmedSum = allPayments
       .filter((p) => p.status === PaymentStatus.APPROVED && !isPendingManualRefund(p))
       .reduce((s, p) => s + Number(p.amount), 0);
-    const refundedSum = allFiltered
+    const refundedSum = allPayments
       .filter((p) => p.status === PaymentStatus.REFUNDED || p.status === PaymentStatus.PARTIAL_REFUND)
       .reduce((s, p) => s + Number(p.refundAmount || 0), 0);
 
-    const data: Transaction[] = payments.map((p) => ({
-      id: p.id,
-      createdAt: p.createdAt,
-      paidAt: p.paidAt,
-      method: p.method,
-      status: p.status,
-      amount: Number(p.amount),
-      refundAmount: p.refundAmount ? Number(p.refundAmount) : null,
-      refundReason: p.refundReason,
-      gatewayId: p.gatewayId,
-      gatewayStatus: p.gatewayStatus,
-      cardLastFour: p.cardLastFour,
-      cardBrand: p.cardBrand,
-      pendingManualRefund: isPendingManualRefund(p),
-      booking: {
-        id: p.booking.id,
-        date: p.booking.date,
-        startTime: p.booking.startTime,
-        endTime: p.booking.endTime,
-        court: {
-          id: p.booking.court.id,
-          name: p.booking.court.name,
+    // Agrupa por pedido (orderId). Reservas antigas sem orderId = pedido individual.
+    type PaymentRow = (typeof allPayments)[number];
+    const groups = new Map<string, PaymentRow[]>();
+    for (const p of allPayments) {
+      const key = p.booking.orderId ?? p.bookingId;
+      const arr = groups.get(key);
+      if (arr) arr.push(p);
+      else groups.set(key, [p]);
+    }
+
+    // Status representativo do pedido (prioriza o que indica pagamento efetivado)
+    const STATUS_PRIORITY: PaymentStatus[] = [
+      PaymentStatus.APPROVED,
+      PaymentStatus.PROCESSING,
+      PaymentStatus.PENDING,
+      PaymentStatus.PARTIAL_REFUND,
+      PaymentStatus.REFUNDED,
+      PaymentStatus.REJECTED,
+      PaymentStatus.CANCELLED,
+      PaymentStatus.EXPIRED,
+    ];
+    const aggStatus = (items: PaymentRow[]): PaymentStatus => {
+      for (const s of STATUS_PRIORITY) if (items.some((p) => p.status === s)) return s;
+      return items[0].status;
+    };
+
+    const allOrders: Transaction[] = Array.from(groups.entries()).map(([orderId, items]) => {
+      const principal = items[0];
+      const sortedItems = [...items].sort(
+        (a, b) => +new Date(a.booking.date) - +new Date(b.booking.date) || a.booking.startTime.localeCompare(b.booking.startTime)
+      );
+      const amount = items.reduce((s, p) => s + Number(p.amount), 0);
+      const refundAmount = items.reduce((s, p) => s + Number(p.refundAmount || 0), 0);
+      return {
+        id: orderId,
+        createdAt: principal.createdAt,
+        paidAt: principal.paidAt,
+        method: principal.method,
+        status: aggStatus(items),
+        amount,
+        refundAmount: refundAmount > 0 ? refundAmount : null,
+        refundReason: principal.refundReason,
+        gatewayId: principal.gatewayId,
+        gatewayStatus: principal.gatewayStatus,
+        cardLastFour: principal.cardLastFour,
+        cardBrand: principal.cardBrand,
+        pendingManualRefund: items.some(isPendingManualRefund),
+        booking: {
+          id: principal.booking.id,
+          date: principal.booking.date,
+          startTime: principal.booking.startTime,
+          endTime: principal.booking.endTime,
+          court: { id: principal.booking.court.id, name: principal.booking.court.name },
+          user: {
+            id: principal.booking.user.id,
+            name: principal.booking.user.name,
+            email: principal.booking.user.email,
+            phone: principal.booking.user.phone,
+          },
         },
-        user: {
-          id: p.booking.user.id,
-          name: p.booking.user.name,
-          email: p.booking.user.email,
-          phone: p.booking.user.phone,
-        },
-      },
-    }));
+        itemCount: items.length,
+        bookings: sortedItems.map((p) => ({
+          id: p.booking.id,
+          date: p.booking.date,
+          startTime: p.booking.startTime,
+          endTime: p.booking.endTime,
+          court: { id: p.booking.court.id, name: p.booking.court.name },
+          amount: Number(p.amount),
+          status: p.status,
+        })),
+      };
+    });
+
+    // Ordena pedidos pelo mais recente e pagina por PEDIDO
+    allOrders.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+    const total = allOrders.length;
+    const data = allOrders.slice((page - 1) * pageSize, page * pageSize);
+
+    // Contagem de transações = pedidos com pelo menos um pagamento confirmado
+    const confirmedOrderKeys = new Set<string>();
+    for (const p of allPayments) {
+      if (p.status === PaymentStatus.APPROVED && !isPendingManualRefund(p)) {
+        confirmedOrderKeys.add(p.booking.orderId ?? p.bookingId);
+      }
+    }
 
     return {
       data,
@@ -404,7 +448,7 @@ export class PrismaFinanceiroRepository implements IFinanceiroRepository {
       summary: {
         totalAmount: confirmedSum,
         totalRefunded: refundedSum,
-        count: allFiltered.filter((p) => p.status === PaymentStatus.APPROVED && !isPendingManualRefund(p)).length,
+        count: confirmedOrderKeys.size,
       },
     };
   }

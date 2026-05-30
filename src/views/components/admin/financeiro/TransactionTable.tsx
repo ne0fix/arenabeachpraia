@@ -123,7 +123,18 @@ export function TransactionTable({
                       {format(new Date(t.paidAt || t.createdAt), "dd/MM HH:mm", { locale: ptBR })}
                     </td>
                     <td className="px-6 py-4 text-sm font-bold text-on-surface">{t.booking.user.name}</td>
-                    <td className="px-6 py-4 text-sm text-on-surface-variant">{t.booking.court.name}</td>
+                    <td className="px-6 py-4 text-sm text-on-surface-variant">
+                      {t.itemCount && t.itemCount > 1 ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          {t.booking.court.name}
+                          <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                            {t.itemCount} horários
+                          </span>
+                        </span>
+                      ) : (
+                        t.booking.court.name
+                      )}
+                    </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1.5 text-on-surface-variant">
                         <MethodIcon size={14} />

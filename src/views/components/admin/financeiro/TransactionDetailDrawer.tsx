@@ -113,15 +113,31 @@ export function TransactionDetailDrawer({
           {/* Booking Info */}
           <section>
             <h3 className="text-[10px] font-headline font-bold uppercase tracking-widest text-on-surface-variant mb-4 flex items-center gap-2">
-              <Calendar size={14} /> Agendamento
+              <Calendar size={14} /> {transaction.itemCount && transaction.itemCount > 1 ? `Pedido · ${transaction.itemCount} horários` : 'Agendamento'}
             </h3>
-            <div className="space-y-4">
-              <DetailItem label="Quadra" value={transaction.booking.court.name} />
-              <DetailItem 
-                label="Horário" 
-                value={`${format(new Date(String(transaction.booking.date).slice(0, 10) + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR })} • ${transaction.booking.startTime} às ${transaction.booking.endTime}`} 
-              />
-            </div>
+            {transaction.bookings && transaction.bookings.length > 1 ? (
+              <div className="space-y-2">
+                {transaction.bookings.map((b) => (
+                  <div key={b.id} className="flex items-center justify-between gap-3 bg-surface-container-low/40 rounded-xl px-3 py-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-on-surface truncate">{b.court.name}</p>
+                      <p className="text-xs text-on-surface-variant">
+                        {format(new Date(String(b.date).slice(0, 10) + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR })} • {b.startTime}–{b.endTime}
+                      </p>
+                    </div>
+                    <span className="text-sm font-black text-on-surface whitespace-nowrap">{formatCurrency(b.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <DetailItem label="Quadra" value={transaction.booking.court.name} />
+                <DetailItem
+                  label="Horário"
+                  value={`${format(new Date(String(transaction.booking.date).slice(0, 10) + 'T12:00:00'), "dd/MM/yyyy", { locale: ptBR })} • ${transaction.booking.startTime} às ${transaction.booking.endTime}`}
+                />
+              </div>
+            )}
           </section>
         </div>
 
