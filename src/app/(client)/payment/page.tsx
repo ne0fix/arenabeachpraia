@@ -309,6 +309,7 @@ function PaymentContent() {
                     cpf: fd.get('cpf') as string,
                   })
                 }}
+                onChange={vm.clearCardError}
               >
                 <div>
                   <label className="block font-headline text-[10px] text-on-surface-variant mb-1.5 font-bold uppercase tracking-widest">
@@ -372,6 +373,13 @@ function PaymentContent() {
                     />
                   </div>
                 </div>
+
+                {vm.cardError && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                    <p className="font-headline text-xs text-red-700 leading-relaxed">{vm.cardError}</p>
+                  </div>
+                )}
 
                 <button
                   type="submit"

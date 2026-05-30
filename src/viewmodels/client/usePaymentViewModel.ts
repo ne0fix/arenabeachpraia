@@ -14,7 +14,6 @@ declare global {
   }
 }
 
-// Aguarda o SDK do MercadoPago (carregado via <Script>) ficar disponível.
 async function waitForMercadoPago(timeoutMs = 5000): Promise<void> {
   const start = Date.now()
   while (Date.now() - start < timeoutMs) {
@@ -38,13 +37,11 @@ function extractMpError(e: any): string {
   }
   // cause como objeto único (não array)
   if (e?.cause && !Array.isArray(e.cause)) {
-    const c = e.cause
-    const desc = c?.description ?? c?.message ?? ''
+    const desc = e.cause?.description ?? e.cause?.message ?? ''
     if (desc) return desc
   }
   const msg = e?.message ?? e?.error ?? e?.msg ?? ''
   if (msg) return String(msg)
-  // Fallback: serializa o objeto para debug
   try { return JSON.stringify(e) } catch { return 'Erro desconhecido' }
 }
 
@@ -61,11 +58,12 @@ export function usePaymentViewModel() {
   const [copied, setCopied] = useState(false)
   const [batchPending, setBatchPending] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [tokenizing, setTokenizing] = useState(false)
+  const [cardError, setCardError] = useState<string | null>(null)
 
   const isBatch = params.get('batch') === 'true'
   const cartItemId = params.get('cartItemId') ?? ''
 
-  // Params usados apenas no fluxo single
   const courtId = params.get('courtId') ?? ''
   const date = params.get('date') ?? ''
   const startTime = params.get('startTime') ?? ''
@@ -155,7 +153,6 @@ export function usePaymentViewModel() {
         setPixQrCode(data.pixQrCode)
         setPixQrCodeBase64(data.pixQrCodeBase64 || null)
         setTimeout(() => {
-          // Limpa o carrinho — todas as reservas estão criadas
           cart.clearCart()
           router.push(`/booking-success?bookingId=${data.primaryBookingId}${batchParam}`)
         }, 1500)
@@ -171,7 +168,7 @@ export function usePaymentViewModel() {
     }
   }
 
-  const isPending = isBatch ? batchPending : singlePending
+  const isPending = isBatch ? batchPending : singlePending || tokenizing
 
   const confirmPayment = async (cardData?: {
     cardNumber: string
@@ -180,59 +177,74 @@ export function usePaymentViewModel() {
     cvv: string
     cpf?: string
   }) => {
-    if (cardData) {
-      try {
-        const publicKey = mpPublicKey || process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY
-        if (!publicKey) throw new Error('Chave pública do MercadoPago não configurada')
-
-        // Garante que o SDK (carregado via <Script>) já está disponível.
-        await waitForMercadoPago()
-
-        const mp = new window.MercadoPago(publicKey, { locale: 'pt-BR' })
-
-        // Aceita validade com ou sem barra: "MM/AA", "MMAA", "MM/AAAA".
-        const expDigits = cardData.expiry.replace(/\D/g, '')
-        const month = expDigits.slice(0, 2)
-        const yy = expDigits.slice(2)
-        const year = yy.length === 4 ? yy : '20' + yy.slice(0, 2)
-
-        // CPF do titular (somente dígitos). Sem um CPF válido o MP recusa o token.
-        const cpf = (cardData.cpf ?? '').replace(/\D/g, '')
-
-        const tokenResult = await mp.createCardToken({
-          cardNumber: cardData.cardNumber.replace(/\D/g, ''),
-          cardholderName: cardData.cardHolder,
-          cardExpirationMonth: month,
-          cardExpirationYear: year,
-          securityCode: cardData.cvv,
-          identificationType: 'CPF',
-          identificationNumber: cpf,
-        })
-
-        console.log('[MP] createCardToken result:', JSON.stringify(tokenResult))
-
-        if (!tokenResult?.id) {
-          throw new Error(extractMpError(tokenResult) || 'Não foi possível validar o cartão')
-        }
-
-        const brand = tokenResult.card?.payment_method?.id ?? tokenResult.payment_method?.id ?? 'visa'
-
-        if (isBatch) {
-          await createBatchBooking({ paymentToken: tokenResult.id, cardBrand: brand })
-        } else {
-          await createSingleBooking({ paymentToken: tokenResult.id, cardBrand: brand })
-        }
-      } catch (e: any) {
-        console.error('Card tokenization failed:', e)
-        const msg = extractMpError(e)
-        router.push(`/booking-error?code=TOKEN_FAILED${msg ? `&message=${encodeURIComponent(msg)}` : ''}`)
-      }
-    } else {
+    if (!cardData) {
+      // Fluxo PIX
       if (isBatch) {
         await createBatchBooking()
       } else {
         await createSingleBooking({})
       }
+      return
+    }
+
+    // ── Passo 1: tokenizar cartão (erro inline, usuário corrige sem sair da página) ──
+    setCardError(null)
+    setTokenizing(true)
+
+    let paymentToken: string
+    let cardBrand: string
+
+    try {
+      const publicKey = mpPublicKey || process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY
+      if (!publicKey) throw new Error('Chave pública do MercadoPago não configurada. Contate o suporte.')
+
+      await waitForMercadoPago()
+
+      const mp = new window.MercadoPago(publicKey, { locale: 'pt-BR' })
+
+      // Aceita validade com ou sem barra: "MM/AA", "MMAA", "MM/AAAA".
+      const expDigits = cardData.expiry.replace(/\D/g, '')
+      const month = expDigits.slice(0, 2)
+      const yy = expDigits.slice(2)
+      const year = yy.length === 4 ? yy : '20' + yy.slice(0, 2)
+
+      // CPF do titular (somente dígitos). Sem um CPF válido o MP recusa o token.
+      const cpf = (cardData.cpf ?? '').replace(/\D/g, '')
+
+      const tokenResult = await mp.createCardToken({
+        cardNumber: cardData.cardNumber.replace(/\D/g, ''),
+        cardholderName: cardData.cardHolder,
+        cardExpirationMonth: month,
+        cardExpirationYear: year,
+        securityCode: cardData.cvv,
+        identificationType: 'CPF',
+        identificationNumber: cpf,
+      })
+
+      console.log('[MP] createCardToken result:', JSON.stringify(tokenResult))
+
+      if (!tokenResult?.id) {
+        const detail = extractMpError(tokenResult)
+        throw new Error(detail || 'Dados do cartão inválidos. Verifique e tente novamente.')
+      }
+
+      paymentToken = tokenResult.id
+      cardBrand = tokenResult.card?.payment_method?.id ?? tokenResult.payment_method?.id ?? 'visa'
+    } catch (e: any) {
+      console.error('[MP] Tokenization error:', e)
+      setCardError(extractMpError(e) || 'Não foi possível validar o cartão. Verifique os dados e tente novamente.')
+      setTokenizing(false)
+      return
+    }
+
+    setTokenizing(false)
+
+    // ── Passo 2: criar reserva com o token (falhas redirecionam para a página de erro) ──
+    if (isBatch) {
+      await createBatchBooking({ paymentToken, cardBrand })
+    } else {
+      // useMutation com onError já redireciona para PAYMENT_FAILED em caso de falha
+      await createSingleBooking({ paymentToken, cardBrand }).catch(() => {})
     }
   }
 
@@ -287,6 +299,8 @@ export function usePaymentViewModel() {
     copied,
     isPending,
     cancelling,
+    cardError,
+    clearCardError: () => setCardError(null),
     hasBooking: allBookingIds.length > 0,
     confirmPayment,
     copyPix,
