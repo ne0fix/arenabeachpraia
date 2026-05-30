@@ -7,6 +7,7 @@ import { PrismaCourtRepository } from '@/infrastructure/repositories/PrismaCourt
 import { PrismaPaymentRepository } from '@/infrastructure/repositories/PrismaPaymentRepository'
 import { AppError } from '@/core/errors/AppError'
 import { emitToRoom } from '@/lib/socket-server'
+import { reconcilePaymentByResourceId } from '@/services/paymentReconciliation'
 
 const createSchema = z.object({
   courtId: z.string().min(1),
@@ -79,13 +80,33 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url)
   const repo = new PrismaBookingRepository()
-  const result = await repo.findOrdersForAdmin({
+  const filter = {
     status: searchParams.get('status') as any,
     courtId: searchParams.get('courtId') ?? undefined,
     date: searchParams.get('date') ?? undefined,
     page: Number(searchParams.get('page') ?? 1),
     limit: Number(searchParams.get('limit') ?? 20),
-  })
+  }
+
+  let result = await repo.findOrdersForAdmin(filter)
+
+  // Reconcilia em batch todos os pedidos PENDING com gatewayId na página atual.
+  // Garante que pagamentos aprovados no MP — mas cujo webhook não chegou — sejam
+  // confirmados sem precisar abrir o detalhe de cada pedido individualmente.
+  const pendingGatewayIds = Array.from(new Set(
+    result.orders
+      .filter(o => o.status === 'PENDING' && o.gatewayId)
+      .map(o => o.gatewayId as string)
+  ))
+
+  if (pendingGatewayIds.length > 0) {
+    const reconciled = await Promise.all(
+      pendingGatewayIds.map(gId => reconcilePaymentByResourceId(gId).catch(() => false))
+    )
+    if (reconciled.some(Boolean)) {
+      result = await repo.findOrdersForAdmin(filter)
+    }
+  }
 
   return NextResponse.json(result)
 }
