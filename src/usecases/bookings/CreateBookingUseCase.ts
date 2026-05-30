@@ -126,20 +126,23 @@ export class CreateBookingUseCase {
       throw error
     }
 
+    const APPROVED_STATUSES = ['approved', 'processed', 'accredited']
+    const isApproved = APPROVED_STATUSES.includes(gatewayStatus)
+
     const payment = await this.paymentRepo.create({
       bookingId: booking.id,
       method: input.paymentMethod,
-      status: ['approved', 'processed', 'accredited'].includes(gatewayStatus) ? 'APPROVED' : 'PENDING',
+      status: isApproved ? 'APPROVED' : 'PENDING',
       amount: totalValue,
       gatewayId: gatewayId?.toString() || null,
       gatewayStatus: gatewayStatus,
       pixQrCode,
       pixQrCodeBase64,
       pixExpiration,
-      cardLastFour: null, // Pode ser extraído do response se disponível
-      cardBrand: null,
+      cardLastFour: null,
+      cardBrand: input.cardBrand ?? null,
       installments: 1,
-      paidAt: ['approved', 'processed', 'accredited'].includes(gatewayStatus) ? new Date() : null,
+      paidAt: isApproved ? new Date() : null,
       refundedAt: null,
       refundedBy: null,
       refundAmount: null,
@@ -147,9 +150,37 @@ export class CreateBookingUseCase {
       refundReason: null,
     })
 
-    return { 
-      booking, 
-      payment, 
+    // Para cartão aprovado imediatamente: confirma o booking sem esperar webhook.
+    // Verifica conflito de slot (first-paid-wins) antes de confirmar.
+    if (isApproved && input.paymentMethod !== 'PIX') {
+      // checkAvailability só conta CONFIRMED — o booking atual é PENDING, não conflita consigo mesmo
+      const stillAvailable = await this.bookingRepo.checkAvailability(
+        input.courtId,
+        input.date,
+        input.startTime,
+        endTime,
+      )
+
+      if (stillAvailable) {
+        const confirmed = await this.bookingRepo.update(booking.id, { status: 'CONFIRMED' })
+        booking.status = confirmed.status
+      } else {
+        // Outro cliente confirmou o slot durante o processamento — cancela e agenda estorno
+        await this.bookingRepo.update(booking.id, {
+          status: 'CANCELLED',
+          cancelReason: 'SLOT_TAKEN_BY_OTHER',
+          cancelledAt: new Date(),
+          cancelledBy: 'system',
+        })
+        booking.status = 'CANCELLED'
+        booking.cancelReason = 'SLOT_TAKEN_BY_OTHER'
+        console.warn(`Slot tomado durante pagamento do booking ${booking.id} — estorno manual necessário`)
+      }
+    }
+
+    return {
+      booking,
+      payment,
       pixQrCode: pixQrCode || undefined,
       pixQrCodeBase64: pixQrCodeBase64 || undefined
     }
