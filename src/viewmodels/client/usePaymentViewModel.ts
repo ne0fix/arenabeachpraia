@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { useSiteSettings } from '@/views/providers/SiteSettingsProvider'
@@ -71,6 +71,11 @@ export function usePaymentViewModel() {
   const [cancelling, setCancelling] = useState(false)
   const [tokenizing, setTokenizing] = useState(false)
   const [cardError, setCardError] = useState<string | null>(null)
+  const [cardDenied, setCardDenied] = useState(false)
+  const [cardDeniedMsg, setCardDeniedMsg] = useState('')
+  // Ref para acessar o method atual dentro de closures de mutation
+  const methodRef = useRef<PaymentMethod>('PIX')
+  methodRef.current = method
 
   const isBatch = params.get('batch') === 'true'
   const cartItemId = params.get('cartItemId') ?? ''
@@ -106,32 +111,42 @@ export function usePaymentViewModel() {
       return res.json() as Promise<{ booking: { id: string }; pixQrCode?: string; pixQrCodeBase64?: string }>
     },
     onSuccess: (data) => {
-      // Cartão recusado: o servidor pode retornar 201 com booking PENDING e payment REJECTED
-      // Redireciona para erro em vez de mostrar "Aguardando PIX"
+      // Fallback: servidor retornou 201 mas pagamento foi recusado
       if (
-        data.payment?.status === 'REJECTED' ||
-        (data.booking?.status === 'CANCELLED' && (data.booking as any)?.cancelReason === 'PAYMENT_FAILED')
+        (data as any).payment?.status === 'REJECTED' ||
+        ((data as any).booking?.status === 'CANCELLED' && (data as any).booking?.cancelReason === 'PAYMENT_FAILED')
       ) {
-        router.push('/booking-error?code=PAYMENT_FAILED&message=' + encodeURIComponent('Cartão recusado. Tente outro cartão ou pague via Pix.'))
+        if (methodRef.current === 'CREDIT_CARD') {
+          setCardDenied(true)
+          setCardDeniedMsg('Cartão recusado. Tente outro cartão ou pague via Pix.')
+        } else {
+          router.push('/booking-error?code=PAYMENT_FAILED')
+        }
         return
       }
 
-      setBookingId(data.booking.id)
-      setAllBookingIds([data.booking.id])
+      setBookingId((data as any).booking.id)
+      setAllBookingIds([(data as any).booking.id])
       const cartParam = cartItemId ? `&cartItemId=${cartItemId}` : ''
-      if (method === 'PIX' && data.pixQrCode) {
-        setPixQrCode(data.pixQrCode)
-        setPixQrCodeBase64(data.pixQrCodeBase64 || null)
+      if (methodRef.current === 'PIX' && (data as any).pixQrCode) {
+        setPixQrCode((data as any).pixQrCode)
+        setPixQrCodeBase64((data as any).pixQrCodeBase64 || null)
         setTimeout(() => {
-          router.push(`/booking-success?bookingId=${data.booking.id}${cartParam}`)
+          router.push(`/booking-success?bookingId=${(data as any).booking.id}${cartParam}`)
         }, 1500)
       } else {
-        router.push(`/booking-success?bookingId=${data.booking.id}${cartParam}`)
+        router.push(`/booking-success?bookingId=${(data as any).booking.id}${cartParam}`)
       }
     },
     onError: (error: any) => {
-      const msg = error?.message ?? ''
-      router.push(`/booking-error?code=PAYMENT_FAILED${msg ? `&message=${encodeURIComponent(msg)}` : ''}`)
+      if (methodRef.current === 'CREDIT_CARD') {
+        // Erros de cartão ficam inline na própria página de pagamento
+        setCardDenied(true)
+        setCardDeniedMsg(error?.message ?? 'Pagamento não aprovado. Tente novamente.')
+      } else {
+        const msg = error?.message ?? ''
+        router.push(`/booking-error?code=PAYMENT_FAILED${msg ? `&message=${encodeURIComponent(msg)}` : ''}`)
+      }
     },
   })
 
@@ -189,7 +204,12 @@ export function usePaymentViewModel() {
       }
     } catch (err: any) {
       console.error('Batch booking error:', err)
-      router.push(`/booking-error?code=PAYMENT_FAILED&message=${encodeURIComponent(err.message ?? '')}`)
+      if (method === 'CREDIT_CARD') {
+        setCardDenied(true)
+        setCardDeniedMsg(err.message ?? 'Pagamento não aprovado. Tente novamente.')
+      } else {
+        router.push(`/booking-error?code=PAYMENT_FAILED&message=${encodeURIComponent(err.message ?? '')}`)
+      }
     } finally {
       setBatchPending(false)
     }
@@ -276,12 +296,12 @@ export function usePaymentViewModel() {
 
     setTokenizing(false)
 
-    // ── Passo 2: criar reserva com o token (falhas redirecionam para a página de erro) ──
+    // ── Passo 2: criar reserva com o token ──────────────────────────────────────
+    // Erros de cartão: onError seta cardDenied (fica na página). Erros de PIX: redireciona.
     const payerCpf = (cardData.cpf ?? '').replace(/\D/g, '')
     if (isBatch) {
       await createBatchBooking({ paymentToken, cardBrand, payerCpf })
     } else {
-      // useMutation com onError já redireciona para PAYMENT_FAILED em caso de falha
       await createSingleBooking({ paymentToken, cardBrand, payerCpf }).catch(() => {})
     }
   }
@@ -322,6 +342,12 @@ export function usePaymentViewModel() {
     }
   }
 
+  const retryCard = () => {
+    setCardDenied(false)
+    setCardDeniedMsg('')
+    setCardError(null)
+  }
+
   return {
     method,
     setMethod,
@@ -339,6 +365,9 @@ export function usePaymentViewModel() {
     cancelling,
     cardError,
     clearCardError: () => setCardError(null),
+    cardDenied,
+    cardDeniedMsg,
+    retryCard,
     hasBooking: allBookingIds.length > 0,
     confirmPayment,
     copyPix,

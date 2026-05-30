@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowLeft, Calendar, Plus, Clock, X, CheckCircle, Clock3, XCircle, QrCode, Copy, Check, Share2, MapPin, CreditCard, Banknote, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Calendar, Plus, Clock, X, CheckCircle, Clock3, XCircle, QrCode, Copy, Check, Share2, MapPin, CreditCard, Banknote, ChevronRight, Hourglass } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'motion/react'
 import Image from 'next/image'
@@ -30,6 +30,19 @@ const STATUS_CONFIG: Record<BookingStatus, { icon: any; label: string; color: st
   COMPLETED: { icon: CheckCircle, label: 'Realizado', color: 'text-blue-700', bg: 'bg-blue-100' },
 }
 
+// Retorna label específico baseado no método de pagamento para status PENDING
+function getStatusConfig(booking: BookingWithDetails) {
+  const cfg = { ...STATUS_CONFIG[booking.status] }
+  if (booking.status === 'PENDING') {
+    const method = (booking as any).payment?.method
+    if (method === 'CREDIT_CARD' || method === 'DEBIT_CARD') {
+      cfg.label = 'Aguardando confirmação do cartão'
+      cfg.icon = Hourglass
+    }
+  }
+  return cfg
+}
+
 const METHOD_LABEL: Record<string, string> = {
   PIX: 'Pix',
   CREDIT_CARD: 'Cartão de crédito',
@@ -42,7 +55,7 @@ function BookingDetailModal({ booking, onClose, onCancel }: {
   onCancel: (id: string) => void
 }) {
   const [copied, setCopied] = useState(false)
-  const status = STATUS_CONFIG[booking.status]
+  const status = getStatusConfig(booking)
   const StatusIcon = status.icon
   const bookingDate = new Date((booking.date as any).toString().slice(0, 10) + 'T12:00:00')
   const pixQrCode = (booking as any).payment?.pixQrCode
@@ -224,6 +237,7 @@ interface ClientOrder {
 export default function BookingsPage() {
   const router = useRouter()
   const vm = useMyBookingsViewModel()
+  const { pendingCardGroups } = vm
   const [selected, setSelected] = useState<BookingWithDetails | null>(null)
   const [selectedOrder, setSelectedOrder] = useState<ClientOrder | null>(null)
 
@@ -268,6 +282,30 @@ export default function BookingsPage() {
                 </button>
               )
             })}
+          </section>
+        )}
+
+        {/* Banner: Cartão aguardando confirmação do MP */}
+        {pendingCardGroups.length > 0 && (
+          <section className="mb-4">
+            {pendingCardGroups.map((g) => (
+              <div
+                key={g.orderId}
+                className="w-full text-left bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center gap-3 mb-2"
+              >
+                <div className="bg-blue-100 rounded-xl p-2 flex-shrink-0">
+                  <Hourglass className="w-5 h-5 text-blue-700" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-headline text-sm font-bold text-blue-900">
+                    Aguardando confirmação do cartão
+                  </p>
+                  <p className="font-headline text-xs text-blue-700 truncate">
+                    {g.count > 1 ? `${g.count} horários` : g.primary.court?.name} · Processando pagamento
+                  </p>
+                </div>
+              </div>
+            ))}
           </section>
         )}
 
@@ -398,7 +436,7 @@ function OrderDetailModal({ order, onClose, onCancel }: {
           )}
 
           {order.bookings.map((b) => {
-            const cfg = STATUS_CONFIG[b.status]
+            const cfg = getStatusConfig(b)
             const Icon = cfg.icon
             const d = new Date(String(b.date).slice(0, 10) + 'T12:00:00')
             return (

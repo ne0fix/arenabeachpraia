@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from 'react'
 import Script from 'next/script'
-import { QrCode, CreditCard, Lock, Copy, Check, Smartphone, ScanLine, BadgeCheck, ChevronRight, AlertTriangle, XCircle, Loader2 } from 'lucide-react'
+import { QrCode, CreditCard, Lock, Copy, Check, Smartphone, ScanLine, BadgeCheck, ChevronRight, AlertTriangle, XCircle, Loader2, RefreshCcw } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import Image from 'next/image'
 import { Button } from '@/views/components/ui/Button'
@@ -296,6 +296,38 @@ function PaymentContent() {
             </div>
 
             <div className="p-5">
+              {/* ── Cartão recusado — exibido no lugar do formulário ── */}
+              {vm.cardDenied ? (
+                <div className="flex flex-col items-center gap-5 py-4">
+                  <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
+                    <XCircle className="w-9 h-9 text-red-500" />
+                  </div>
+                  <div className="text-center space-y-1">
+                    <h3 className="font-headline text-base font-bold text-red-600">Pagamento não aprovado</h3>
+                    {vm.cardDeniedMsg && (
+                      <p className="font-headline text-xs text-on-surface-variant leading-relaxed max-w-[260px] mx-auto">
+                        {vm.cardDeniedMsg}
+                      </p>
+                    )}
+                  </div>
+                  <div className="w-full space-y-2">
+                    <button
+                      type="button"
+                      onClick={vm.retryCard}
+                      className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-primary text-white font-headline text-sm font-bold hover:bg-primary/90 active:scale-[0.98] transition-all"
+                    >
+                      <RefreshCcw className="w-4 h-4" /> Tentar Novamente
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { vm.retryCard(); vm.setMethod('PIX') }}
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border border-outline-variant/40 text-on-surface-variant font-headline text-sm font-bold hover:bg-surface-container transition-all"
+                    >
+                      <QrCode className="w-4 h-4" /> Pagar via Pix
+                    </button>
+                  </div>
+                </div>
+              ) : (
               <form
                 className="space-y-4"
                 onSubmit={(e) => {
@@ -393,8 +425,9 @@ function PaymentContent() {
                   )}
                 </button>
               </form>
+              )} {/* fim do bloco cardDenied */}
 
-              {/* Botão cancelar pedido */}
+              {/* Botão cancelar pedido — visível em ambos os estados */}
               <div className="mt-3">
                 <CancelButton
                   confirm={confirmCancel}

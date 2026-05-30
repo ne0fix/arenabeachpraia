@@ -152,5 +152,24 @@ export function useMyBookingsViewModel() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['my-bookings', userId] }),
   })
 
-  return { filtered, groupedOrders, isLoading, filter, setFilter, cancelBooking, cancelling, pendingPixGroups }
+  // Pedidos de cartão que aguardam confirmação do MP (in_process)
+  const pendingCardGroups = useMemo(() => {
+    const map = new Map<string, BookingWithDetails[]>()
+    for (const b of allBookings) {
+      const payment = (b as any).payment
+      if (b.status !== 'PENDING') continue
+      if (payment?.method !== 'CREDIT_CARD') continue
+      if (payment?.pixQrCode) continue // PIX, não cartão
+      const key = b.orderId ?? b.id
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(b)
+    }
+    return Array.from(map.entries()).map(([orderId, items]) => {
+      const primary = items[0]
+      const total = items.reduce((s, b) => s + Number((b as any).payment?.amount ?? b.totalValue), 0)
+      return { orderId, primary, bookingIds: items.map((b) => b.id), count: items.length, total }
+    })
+  }, [allBookings])
+
+  return { filtered, groupedOrders, isLoading, filter, setFilter, cancelBooking, cancelling, pendingPixGroups, pendingCardGroups }
 }
