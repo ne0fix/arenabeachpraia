@@ -24,7 +24,35 @@ function SuccessContent() {
   const isBatch = batchIds.length > 1
   const [copied, setCopied] = useState(false)
   const [showDetails, setShowDetails] = useState(false)
+  const [confirmCancel, setConfirmCancel] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   const cart = useBookingCart()
+
+  // Cancela o pedido inteiro (todos os horários) enquanto aguarda o pagamento.
+  // Usa refund:false — o backend bloqueia o cancelamento se o pagamento já estiver
+  // aprovado (impede cancelar um QR code pago para forçar estorno).
+  const handleCancelOrder = async () => {
+    if (!confirmCancel) { setConfirmCancel(true); return }
+    const ids = isBatch ? batchIds : (bookingId ? [bookingId] : [])
+    if (ids.length === 0) return
+    setCancelling(true)
+    try {
+      await Promise.all(
+        ids.map((id) =>
+          fetch(`/api/bookings/${id}/cancel`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: 'Cancelado pelo cliente antes do pagamento', refund: false }),
+          })
+        )
+      )
+      cart.clearCart()
+      router.push('/bookings')
+    } catch {
+      setCancelling(false)
+      setConfirmCancel(false)
+    }
+  }
 
   // Em batch, busca todos os bookings para mostrar no modal de detalhes
   const { data: batchData } = useQuery<{ bookings: Array<{ id: string; date: string; startTime: string; endTime: string; status: string; court: { name: string }; payment: { amount: number } | null }> }>({
@@ -239,6 +267,41 @@ function SuccessContent() {
         <Button variant="outline" className="w-full h-12" onClick={() => router.push('/')}>
           <Home className="w-5 h-5 mr-2" /> Ir para o Início
         </Button>
+
+        {/* Cancelar pedido enquanto aguarda pagamento */}
+        {cancelling ? (
+          <div className="flex items-center justify-center gap-2 py-3">
+            <Loader2 className="w-4 h-4 animate-spin text-red-500" />
+            <span className="font-headline text-sm text-red-500 font-bold">Cancelando pedido...</span>
+          </div>
+        ) : confirmCancel ? (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 space-y-3">
+            <p className="font-headline text-sm text-red-700 font-bold text-center">
+              Cancelar este pedido?
+            </p>
+            <p className="font-headline text-[11px] text-red-600 text-center leading-relaxed">
+              O QR code será invalidado e os horários liberados. Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1 h-11" onClick={() => setConfirmCancel(false)}>
+                Voltar
+              </Button>
+              <button
+                onClick={handleCancelOrder}
+                className="flex-1 h-11 rounded-2xl bg-red-600 text-white font-headline text-sm font-bold hover:bg-red-700 transition-all"
+              >
+                Sim, cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={handleCancelOrder}
+            className="w-full flex items-center justify-center gap-2 h-12 rounded-2xl border border-red-200 text-red-500 font-headline text-sm font-bold hover:bg-red-50 active:scale-[0.98] transition-all"
+          >
+            <XCircle className="w-4 h-4" /> Cancelar Pedido
+          </button>
+        )}
 
         {/* Modal de detalhes — só em batch */}
         <AnimatePresence>

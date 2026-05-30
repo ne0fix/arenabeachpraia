@@ -403,27 +403,41 @@ function OrderDetailModal({ order, onClose, onCancel }: {
             const d = new Date(String(b.date).slice(0, 10) + 'T12:00:00')
             return (
               <div key={b.id} className="bg-surface-container-lowest border border-outline-variant/20 rounded-2xl p-3">
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <p className="font-headline text-sm font-bold text-primary truncate">{b.court.name}</p>
-                  <span className={cn('flex-shrink-0 px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1', cfg.bg, cfg.color)}>
-                    <Icon className="w-2.5 h-2.5" /> {cfg.label}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-3 text-xs text-on-surface-variant">
-                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-primary" />{format(d, "dd 'de' MMM", { locale: ptBR })}</span>
-                    <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-primary" />{b.startTime}–{b.endTime}</span>
-                    <span className="font-bold text-primary">{formatCurrency(Number((b as any).payment?.amount ?? b.totalValue))}</span>
+                <div className="flex items-start justify-between gap-3">
+                  {/* Esquerda: quadra + data/hora alinhados */}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-headline text-sm font-bold text-primary truncate">{b.court.name}</p>
+                    <div className="flex items-center gap-3 text-xs text-on-surface-variant mt-1">
+                      <span className="flex items-center gap-1 whitespace-nowrap">
+                        <Calendar className="w-3 h-3 text-primary flex-shrink-0" />
+                        {format(d, "dd 'de' MMM", { locale: ptBR })}
+                      </span>
+                      <span className="flex items-center gap-1 whitespace-nowrap">
+                        <Clock className="w-3 h-3 text-primary flex-shrink-0" />
+                        {b.startTime}–{b.endTime}
+                      </span>
+                    </div>
                   </div>
-                  {['CONFIRMED', 'PENDING'].includes(b.status) && (
+                  {/* Direita: valor + status alinhados */}
+                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                    <span className="font-headline text-sm font-bold text-primary whitespace-nowrap">
+                      {formatCurrency(Number((b as any).payment?.amount ?? b.totalValue))}
+                    </span>
+                    <span className={cn('px-2 py-0.5 rounded-full text-[9px] font-bold flex items-center gap-1 whitespace-nowrap', cfg.bg, cfg.color)}>
+                      <Icon className="w-2.5 h-2.5" /> {cfg.label}
+                    </span>
+                  </div>
+                </div>
+                {['CONFIRMED', 'PENDING'].includes(b.status) && (
+                  <div className="flex justify-end mt-2 pt-2 border-t border-outline-variant/10">
                     <button
                       onClick={() => onCancel(b.id)}
                       className="text-red-600 font-headline text-[10px] font-extrabold hover:text-red-700 transition-colors uppercase tracking-wider"
                     >
-                      Cancelar
+                      Cancelar horário
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             )
           })}

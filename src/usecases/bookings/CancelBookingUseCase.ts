@@ -38,9 +38,17 @@ export class CancelBookingUseCase {
       throw new BookingError('UNAUTHORIZED')
     }
 
+    const payment = booking.payment
+
+    // Segurança: o cliente NÃO pode cancelar um pagamento já aprovado.
+    // Isso evitaria que ele "cancelasse" um QR code pago para forçar um estorno.
+    // Pagamentos aprovados só são cancelados/estornados por um admin.
+    if (!input.isAdmin && payment?.status === 'APPROVED') {
+      throw new BookingError('BOOKING_NOT_CANCELLABLE')
+    }
+
     let refundProcessed = false
     let updatedPayment: Payment | null = null
-    const payment = booking.payment
 
     if (payment?.gatewayId) {
       // Detecta se este pagamento é parte de um batch (mesmo gatewayId em outros bookings)
