@@ -124,9 +124,14 @@ export function useMyBookingsViewModel() {
     }
     return Array.from(map.entries())
       .map(([orderId, items]) => {
-        const sorted = [...items].sort(
-          (a, b) => +new Date(a.date) - +new Date(b.date) || a.startTime.localeCompare(b.startTime)
-        )
+        const sorted = [...items].sort((a, b) => {
+          const courtA = a.court?.name ?? ''
+          const courtB = b.court?.name ?? ''
+          if (courtA !== courtB) return courtA.localeCompare(courtB, 'pt-BR')
+          const dateDiff = +new Date(a.date) - +new Date(b.date)
+          if (dateDiff !== 0) return dateDiff
+          return a.startTime.localeCompare(b.startTime)
+        })
         return {
           orderId,
           bookings: sorted,
