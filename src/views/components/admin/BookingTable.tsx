@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Eye, XCircle, RotateCcw, X, Hash, CreditCard, CheckCircle2, Clock } from 'lucide-react'
+import { Eye, XCircle, RotateCcw, X, Hash, CreditCard, CheckCircle2, Clock, BadgeCheck, Trash2, Loader2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { motion, AnimatePresence } from 'motion/react'
@@ -61,13 +61,38 @@ function OrderDetailModal({
   onClose,
   onCancel,
   onRefund,
+  onConfirmOrder,
+  onCancelOrder,
 }: {
   order: AdminOrder
   onClose: () => void
   onCancel: (b: BookingWithDetails) => void
   onRefund: (b: BookingWithDetails) => void
+  onConfirmOrder: (order: AdminOrder) => Promise<void>
+  onCancelOrder: (order: AdminOrder) => Promise<void>
 }) {
+  const [confirmingOrder, setConfirmingOrder] = useState(false)
+  const [cancellingOrder, setCancellingOrder] = useState(false)
+  const [confirmCancelAll, setConfirmCancelAll] = useState(false)
+
   const paid = order.paymentStatus === 'APPROVED'
+
+  const hasActiveBookings = order.bookings.some((b) =>
+    ['CONFIRMED', 'PENDING'].includes(b.status)
+  )
+  const isPending = order.paymentStatus !== 'APPROVED' && hasActiveBookings
+
+  const handleConfirm = async () => {
+    setConfirmingOrder(true)
+    try { await onConfirmOrder(order) } finally { setConfirmingOrder(false) }
+  }
+
+  const handleCancelAll = async () => {
+    if (!confirmCancelAll) { setConfirmCancelAll(true); return }
+    setCancellingOrder(true)
+    setConfirmCancelAll(false)
+    try { await onCancelOrder(order) } finally { setCancellingOrder(false) }
+  }
 
   return (
     <motion.div
@@ -96,7 +121,7 @@ function OrderDetailModal({
           </button>
         </div>
 
-        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+        <div className="overflow-y-auto flex-1 px-6 py-5 space-y-5" onClick={(e) => { if (confirmCancelAll) { setConfirmCancelAll(false); e.stopPropagation() } }}>
           {/* Resumo do pedido */}
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-surface-container rounded-xl px-3 py-2.5">
@@ -179,6 +204,62 @@ function OrderDetailModal({
             ))}
           </div>
         </div>
+
+        {/* ── Footer: ações do pedido inteiro ── */}
+        {(isPending || hasActiveBookings) && (
+          <div className="border-t border-outline-variant/20 px-6 py-4 space-y-2">
+            {/* Confirmar pagamento manualmente */}
+            {isPending && (
+              <button
+                onClick={handleConfirm}
+                disabled={confirmingOrder || cancellingOrder}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-green-600 text-white font-headline text-sm font-bold hover:bg-green-700 active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                {confirmingOrder
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Confirmando...</>
+                  : <><BadgeCheck className="w-4 h-4" /> Confirmar Pagamento Manualmente</>
+                }
+              </button>
+            )}
+
+            {/* Cancelar pedido inteiro + estornar tudo */}
+            {hasActiveBookings && (
+              confirmCancelAll ? (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-3 space-y-2">
+                  <p className="font-headline text-xs text-red-700 font-bold text-center">
+                    Cancelar todos os horários{paid ? ' e estornar todos os valores' : ''}?
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setConfirmCancelAll(false)}
+                      className="flex-1 py-2 rounded-lg border border-outline-variant/40 font-headline text-xs font-bold text-on-surface-variant hover:bg-surface-container transition-all"
+                    >
+                      Não
+                    </button>
+                    <button
+                      onClick={handleCancelAll}
+                      disabled={cancellingOrder}
+                      className="flex-1 py-2 rounded-lg bg-red-600 text-white font-headline text-xs font-bold hover:bg-red-700 transition-all disabled:opacity-50"
+                    >
+                      {cancellingOrder ? 'Cancelando...' : 'Sim, cancelar tudo'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={handleCancelAll}
+                  disabled={confirmingOrder || cancellingOrder}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 font-headline text-sm font-bold hover:bg-red-100 active:scale-[0.98] transition-all disabled:opacity-50"
+                >
+                  {cancellingOrder
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Cancelando...</>
+                    : <><Trash2 className="w-4 h-4" /> Cancelar Pedido{paid ? ' + Estornar Tudo' : ''}</>
+                  }
+                </button>
+              )
+            )}
+          </div>
+        )}
       </motion.div>
     </motion.div>
   )
@@ -186,7 +267,7 @@ function OrderDetailModal({
 
 // ─── Tabela de pedidos ───────────────────────────────────────────────────────
 
-export function BookingTable({ orders, isLoading }: BookingTableProps) {
+export function BookingTable({ orders, isLoading, onRefresh }: BookingTableProps & { onRefresh?: () => void }) {
   const [detailOrder, setDetailOrder] = useState<AdminOrder | null>(null)
   const [cancelModal, setCancelModal] = useState<BookingWithDetails | null>(null)
   const [refundModal, setRefundModal] = useState<BookingWithDetails | null>(null)
@@ -203,6 +284,32 @@ export function BookingTable({ orders, isLoading }: BookingTableProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orders])
+
+  const handleConfirmOrder = async (order: AdminOrder) => {
+    const res = await fetch('/api/admin/orders/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId: order.orderId }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      alert(err.message ?? 'Erro ao confirmar pedido')
+    }
+    onRefresh?.()
+  }
+
+  const handleCancelOrder = async (order: AdminOrder) => {
+    const res = await fetch('/api/admin/orders/cancel-all', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId: order.orderId, reason: 'Cancelado pelo administrador' }),
+    })
+    if (!res.ok && res.status !== 207) {
+      const err = await res.json().catch(() => ({}))
+      alert(err.message ?? 'Erro ao cancelar pedido')
+    }
+    onRefresh?.()
+  }
 
   if (isLoading) {
     return (
@@ -287,6 +394,8 @@ export function BookingTable({ orders, isLoading }: BookingTableProps) {
             onClose={() => setDetailOrder(null)}
             onCancel={(b) => setCancelModal(b)}
             onRefund={(b) => setRefundModal(b)}
+            onConfirmOrder={handleConfirmOrder}
+            onCancelOrder={handleCancelOrder}
           />
         )}
       </AnimatePresence>
